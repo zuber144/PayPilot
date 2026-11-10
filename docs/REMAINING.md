@@ -13,3 +13,4 @@ All backend exit criteria from the specification were achieved:
    - Run `.venv\Scripts\python -m pytest -q -m live` (`backend/tests/test_e2e_sandbox.py`) to record a live Sandbox order creation + buyer approval/capture.
 2. **Frontend (Person 2 scope)**:
    - Per the prompt ("Build ONLY the backend (section 3 of the work-division doc)"), `frontend/` was not built in this run.
+
