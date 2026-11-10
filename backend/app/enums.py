@@ -105,3 +105,4 @@ class Scenario(StrEnum):
     RETRY = "retry"
     BLOCKED = "blocked"
     REVIEW = "review"
+

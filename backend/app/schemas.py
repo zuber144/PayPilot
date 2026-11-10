@@ -289,3 +289,4 @@ class RiskFlagLLM(BaseModel):
 class RiskLLMOut(BaseModel):
     risk_score: float = Field(ge=0.0, le=1.0)
     flags: list[RiskFlagLLM] = Field(default_factory=list)
+

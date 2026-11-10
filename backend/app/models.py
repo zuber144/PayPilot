@@ -96,3 +96,4 @@ class Transaction(Base):
     status: Mapped[str] = mapped_column(String(20))
     raw: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+

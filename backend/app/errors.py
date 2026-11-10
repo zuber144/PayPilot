@@ -22,3 +22,4 @@ class ApiError(Exception):
         self.code = code
         self.message = message
         self.status_code = status_code or _STATUS.get(code, 400)
+

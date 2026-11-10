@@ -15,3 +15,4 @@ exclude = ["\\.venv"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["live: needs real OpenAI/PayPal Sandbox credentials (skipped otherwise)"]
+

@@ -15,3 +15,4 @@ Autonomous backend build. Each decision is final unless a test or reviewer defec
 11. **NEEDS_INPUT answering** — the 10-route contract has no "answer" route, so the user submits a new goal. Not implemented beyond storing the question.
 12. **Error status codes** — PLAN_NOT_APPROVED/DUPLICATE_PAYMENT/CONFLICT 409, VALIDATION_ERROR 422, NOT_FOUND 404, PAYPAL_ERROR 502, PAYMENTS_DISABLED 503.
 13. **Orchestrator in Antigravity** — the brief assumed Claude Code subagents (`.claude/agents/`). This run uses Antigravity subagents with the same roles (builders, tester, reviewer). They all run on the selected model, so per-role model choice and `/cost` budget checks don't apply here; the time and iteration limits are enforced instead.
+

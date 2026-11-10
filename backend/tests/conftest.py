@@ -4,9 +4,44 @@ Every test gets a fresh SQLite file DB, mock LLM, mock PayPal and seeded provide
 """
 
 import os
+import sys
+import threading
 
 os.environ.setdefault("LLM_MODE", "mock")
 os.environ.setdefault("PAYPAL_MODE", "mock")
+
+if sys.platform == "win32":
+    import asyncio.proactor_events as _pe
+    import asyncio.windows_events as _we
+    import signal as _signal
+
+    _signal.set_wakeup_fd = lambda fd, **kw: -1  # type: ignore[assignment]
+
+    def _make_sp(self) -> None:  # type: ignore[no-untyped-def]
+        self._ssock = None
+        self._csock = type("_DummySock", (), {"fileno": lambda s: -1})()
+        self._internal_fds += 1
+        self._wake_ev = threading.Event()
+
+    _pe.BaseProactorEventLoop._make_self_pipe = _make_sp  # type: ignore[attr-defined]
+    _pe.BaseProactorEventLoop._close_self_pipe = (  # type: ignore[attr-defined]
+        lambda self: setattr(self, "_internal_fds", self._internal_fds - 1)
+    )
+    _we.ProactorEventLoop._loop_self_reading = lambda self, f=None: None  # type: ignore[attr-defined]
+    _pe.BaseProactorEventLoop._write_to_self = (  # type: ignore[attr-defined]
+        lambda self: self._wake_ev.set() if hasattr(self, "_wake_ev") else None
+    )
+    _orig_poll = _we.IocpProactor._poll  # type: ignore[attr-defined]
+
+    def _patched_poll(self, timeout=None):  # type: ignore[no-untyped-def]
+        if self._loop is not None and hasattr(self._loop, "_wake_ev"):
+            if timeout is None or timeout > 0:
+                self._loop._wake_ev.wait(timeout)
+            self._loop._wake_ev.clear()
+            return _orig_poll(self, 0)
+        return _orig_poll(self, timeout)
+
+    _we.IocpProactor._poll = _patched_poll  # type: ignore[attr-defined]
 
 from collections.abc import Iterator  # noqa: E402
 
@@ -48,3 +83,4 @@ def client(engine) -> Iterator[TestClient]:  # type: ignore[no-untyped-def]
 
     with TestClient(create_app(init_db=False)) as c:
         yield c
+

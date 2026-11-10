@@ -46,3 +46,4 @@ def get_db() -> Iterator[Session]:
         yield db
     finally:
         db.close()
+
