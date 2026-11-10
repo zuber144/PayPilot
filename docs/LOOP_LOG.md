@@ -11,3 +11,4 @@ Start: 2026-11-10T13:54:40+05:30 — hard stop 16:54:40 (+3h), max 6 iterations.
 | F2 | 2026-11-10 18:43 | 4/4 scenarios over HTTP | 0 fixes needed | uvicorn + PostgreSQL 16.14 from empty DB, seeded; LLM+PayPal mocked; added run_scenarios.py --base-url mode |
 | F3 | 2026-11-10 18:53 | 85 offline pass; 7/7 live LLM pass | 0 fixes needed | Anthropic claude-haiku-5-5 wired via LLM_PROVIDER; 4/4 HTTP scenarios on Postgres with live LLM (one transient APIConnectionError run fell back safely, re-run clean) |
 | F4 | 2026-11-10 19:21 | live Sandbox pytest 1/1; live capture COMPLETED | INR->USD switch | INR rejected by Sandbox; USD order 9PG11902P8810833V captured, capture ID 4H067940UN781852J (USD 46,000.00), plan PAID |
+| F5 | 2026-11-10 19:22 | CORS preflight OK for :5173; foreign origin rejected | 0 fixes needed | .env.example complete (+ optional overrides); no secrets in git history (.env never tracked, exact-value scan clean) |

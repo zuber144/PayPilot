@@ -27,7 +27,13 @@ docker compose up -d
 # Then set DATABASE_URL=postgresql+psycopg://agentos:agentos@localhost:5432/agentos in backend/.env
 ```
 
-To use live OpenAI and PayPal Sandbox, set `LLM_MODE=live` (`OPENAI_API_KEY=...`) and `PAYPAL_MODE=sandbox` (`PAYPAL_CLIENT_ID=...`, `PAYPAL_CLIENT_SECRET=...`) in `backend/.env`.
+To use the live LLM and PayPal Sandbox, set these in `backend/.env`:
+- `LLM_MODE=live` with `LLM_PROVIDER=anthropic` (default model `claude-haiku-5-5`; the key comes from `ANTHROPIC_API_KEY` in `.env` or your shell). `LLM_PROVIDER=openai` with `OPENAI_API_KEY` is still supported. The provider in use is logged at startup.
+- `PAYPAL_MODE=sandbox` with `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` from a **US** Sandbox app. The demo is USD-only because PayPal Sandbox rejects INR. Approve payments with a US *personal* Sandbox account.
+
+Live tests are opt-in and never run with a plain `pytest`: `.venv\Scripts\python -m pytest -m live`. The PayPal one reads `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` from the shell environment.
+
+To drive the 4 scenarios against a running server (for example on Postgres), start uvicorn with `LLM_MODE=mock PAYPAL_MODE=mock` on an empty database, then run `.venv\Scripts\python scriptsun_scenarios.py --base-url http://127.0.0.1:8000`.
 
 ### 2. Seed the database & start FastAPI
 
