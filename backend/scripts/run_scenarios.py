@@ -76,7 +76,7 @@ GOAL_POLL_SECONDS = 60.0
 
 
 def start_goal(c: TestClient, text: str, budget: int, scenario: str) -> tuple[dict, dict | None]:
-    r = c.post(f"{API}/goals", json={"raw_text": text, "budget_minor": budget, "currency": "INR", "scenario": scenario})
+    r = c.post(f"{API}/goals", json={"raw_text": text, "budget_minor": budget, "currency": "USD", "scenario": scenario})
     check(r.status_code in (200, 201, 202), f"POST /goals -> {r.status_code} {r.text}")
     gid = r.json()["id"]
     # Over real HTTP the background workflow finishes after the response; poll (bounded).
@@ -117,7 +117,7 @@ def clean(c: TestClient) -> str:
     check(final["status"] == "PAID", f"plan status {final['status']}")
     txns = c.get(f"{API}/transactions").json()
     check(len(txns) == 1, f"expected 1 transaction, got {len(txns)}")
-    return f"APPROVED and PAID, total {plan['total_minor']} paise, providers {names}"
+    return f"APPROVED and PAID, total {plan['total_minor']} cents, providers {names}"
 
 
 def retry(c: TestClient) -> str:

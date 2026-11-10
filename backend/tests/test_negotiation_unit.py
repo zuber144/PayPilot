@@ -29,7 +29,7 @@ def _make_provider(
         rating=rating,
         turnaround_days=turnaround,
         verified=verified,
-        currency="INR",
+        currency="USD",
     )
 
 
@@ -63,11 +63,11 @@ def test_clean_scenario_three_rounds_exact_math() -> None:
         offers = negotiation_agent.run_round(offers, providers, r)
 
     by_pid = {o.provider_id: o for o in offers}
-    # ABC: 28,000 -> ~24,966.65 (2,496,665 paise)
+    # ABC: 28,000 -> ~24,966.65 (2,496,665 cents)
     assert by_pid[1].price_minor == 2_496_665
     assert by_pid[1].round == 3
     assert by_pid[1].status == OfferStatus.COUNTERED
-    # Studio X: 18,000 -> ~16,000.01 (1,600,001 paise)
+    # Studio X: 18,000 -> ~16,000.01 (1,600,001 cents)
     assert by_pid[2].price_minor == 1_600_001
     assert by_pid[2].round == 3
     assert by_pid[2].status == OfferStatus.COUNTERED

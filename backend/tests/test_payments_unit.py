@@ -36,7 +36,7 @@ def _seed_goal_and_plan(
     status: PlanStatus = PlanStatus.CHECKED,
     total_minor: int = 4_100_000,
     budget_minor: int = 5_000_000,
-    currency: str = "INR",
+    currency: str = "USD",
     pg: PayGuardResult | None = None,
     acknowledged_flags: list[str] | None = None,
 ) -> tuple[Goal, Plan]:
@@ -115,7 +115,7 @@ def test_paypal_mock_mode_deterministic() -> None:
     assert paypal.get_access_token() == "MOCK-ACCESS-TOKEN"
     order = paypal.create_order(
         amount_str="41000.00",
-        currency="INR",
+        currency="USD",
         return_url="http://localhost:5173/payments/return",
         cancel_url="http://localhost:5173/plans/1",
         request_id="plan-1",
@@ -128,7 +128,7 @@ def test_paypal_mock_mode_deterministic() -> None:
     unit_cap = cap["purchase_units"][0]["payments"]["captures"][0]
     assert unit_cap["id"] == "MOCK-CAP-MOCK-plan-1"
     assert unit_cap["amount"]["value"] == "41000.00"
-    assert unit_cap["amount"]["currency_code"] == "INR"
+    assert unit_cap["amount"]["currency_code"] == "USD"
 
     got = paypal.get_order("MOCK-plan-1")
     assert got["id"] == "MOCK-plan-1"
@@ -189,7 +189,7 @@ def test_paypal_sandbox_token_cache_and_headers(monkeypatch: pytest.MonkeyPatch)
                                         {
                                             "id": "CAP-123",
                                             "status": "COMPLETED",
-                                            "amount": {"currency_code": "INR", "value": "41000.00"},
+                                            "amount": {"currency_code": "USD", "value": "41000.00"},
                                         }
                                     ]
                                 }
@@ -212,7 +212,7 @@ def test_paypal_sandbox_token_cache_and_headers(monkeypatch: pytest.MonkeyPatch)
     assert t2 == "LIVE-TOK-1"
     assert len([c for c in calls if c[1].endswith("/token")]) == 1
 
-    created = paypal.create_order("41000.00", "INR", "http://ret", "http://can", "req-99")
+    created = paypal.create_order("41000.00", "USD", "http://ret", "http://can", "req-99")
     assert created["id"] == "ORDER-123"
     create_headers = [c[2] for c in calls if c[1].endswith("/v2/checkout/orders")][0]
     assert create_headers["PayPal-Request-Id"] == "req-99"
@@ -358,7 +358,7 @@ def test_capture_amount_mismatch_fails_plan(db: Session, monkeypatch: pytest.Mon
                             {
                                 "id": "BAD-CAP",
                                 "status": "COMPLETED",
-                                "amount": {"currency_code": "INR", "value": "99999.00"},
+                                "amount": {"currency_code": "USD", "value": "99999.00"},
                             }
                         ]
                     }
@@ -394,7 +394,7 @@ def test_reconcile_approved_and_completed(db: Session, monkeypatch: pytest.Monke
         request_id=f"plan-{plan2.id}",
         approval_url="http://ret",
         amount_minor=2_500_000,
-        currency="INR",
+        currency="USD",
         status=TxnStatus.CREATED.value,
     )
     db.add(txn2)
@@ -413,7 +413,7 @@ def test_reconcile_approved_and_completed(db: Session, monkeypatch: pytest.Monke
                             {
                                 "id": "CAP-DIRECT",
                                 "status": "COMPLETED",
-                                "amount": {"currency_code": "INR", "value": "25000.00"},
+                                "amount": {"currency_code": "USD", "value": "25000.00"},
                             }
                         ]
                     }

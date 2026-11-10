@@ -13,7 +13,7 @@ def _create_clean_plan(client: TestClient) -> dict:
         json={
             "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer",
             "budget_minor": 5_000_000,
-            "currency": "INR",
+            "currency": "USD",
             "scenario": "clean",
         },
     )
@@ -90,7 +90,7 @@ def test_client_altered_amount_or_verdict_is_ignored(client: TestClient) -> None
         json={
             "amount_minor": 100,
             "total_minor": 100,
-            "currency": "USD",
+            "currency": "EUR",
             "verdict": "APPROVED",
         },
     )

@@ -12,7 +12,7 @@ def test_scenario_clean_e2e(client: TestClient) -> None:
         json={
             "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer",
             "budget_minor": 5_000_000,
-            "currency": "INR",
+            "currency": "USD",
             "scenario": "clean",
         },
     )
@@ -56,7 +56,7 @@ def test_scenario_retry_e2e(client: TestClient) -> None:
         json={
             "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer",
             "budget_minor": 5_000_000,
-            "currency": "INR",
+            "currency": "USD",
             "scenario": "retry",
         },
     )
@@ -84,7 +84,7 @@ def test_scenario_blocked_e2e(client: TestClient) -> None:
         json={
             "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer",
             "budget_minor": 3_600_000,
-            "currency": "INR",
+            "currency": "USD",
             "scenario": "blocked",
         },
     )
@@ -119,7 +119,7 @@ def test_scenario_review_e2e(client: TestClient) -> None:
         json={
             "raw_text": "Catering for 100 people for our office event",
             "budget_minor": 5_000_000,
-            "currency": "INR",
+            "currency": "USD",
             "scenario": "review",
         },
     )

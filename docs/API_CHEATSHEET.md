@@ -3,7 +3,7 @@
 Base URL: `http://localhost:8000/api/v1`  
 Interactive OpenAPI docs: `http://localhost:8000/docs`
 
-All monetary values (`budget_minor`, `price_minor`, `total_minor`, `amount_minor`) are **integer minor units** (e.g., paise for `INR`: `₹50,000.00` = `5000000`).
+All monetary values (`budget_minor`, `price_minor`, `total_minor`, `amount_minor`) are **integer minor units** (cents for `USD`: `$50,000.00` = `5000000`). The demo uses USD only; PayPal Sandbox rejects INR (`CURRENCY_NOT_SUPPORTED`).
 
 ---
 
@@ -59,7 +59,7 @@ Create a purchasing goal and start the LangGraph workflow in the background.
 {
   "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days",
   "budget_minor": 5000000,
-  "currency": "INR",
+  "currency": "USD",
   "scenario": "clean"
 }
 ```
@@ -84,7 +84,7 @@ Poll goal status, parsed requirements, live execution trace, and generated `plan
   "status": "PLAN_READY",
   "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days",
   "budget_minor": 5000000,
-  "currency": "INR",
+  "currency": "USD",
   "scenario": "clean",
   "parsed": {
     "needs": [
@@ -92,7 +92,7 @@ Poll goal status, parsed requirements, live execution trace, and generated `plan
       { "key": "photography", "category": "photography", "quantity": 1, "must_haves": [] }
     ],
     "deadline_days": 10,
-    "currency": "INR"
+    "currency": "USD"
   },
   "question": null,
   "trace": [
@@ -105,7 +105,7 @@ Poll goal status, parsed requirements, live execution trace, and generated `plan
       "summary": "Parsed 2 need(s): catering, photography",
       "reason": "Parsed 2 need(s)",
       "duration_ms": 2,
-      "data": { "needs": ["catering", "photography"], "deadline_days": 10, "currency": "INR" }
+      "data": { "needs": ["catering", "photography"], "deadline_days": 10, "currency": "USD" }
     }
   ],
   "plan_id": 1,
@@ -159,7 +159,7 @@ Retrieve the selected purchase plan, line items, rationale, and latest PayGuard 
   "id": 1,
   "goal_id": 1,
   "status": "CHECKED",
-  "currency": "INR",
+  "currency": "USD",
   "total_minor": 4096666,
   "budget_minor": 5000000,
   "rationale": "Selected the lowest-total combination of verified providers within budget...",
@@ -171,7 +171,7 @@ Retrieve the selected purchase plan, line items, rationale, and latest PayGuard 
       "price_minor": 2496666,
       "timeline_days": 7,
       "verified": true,
-      "currency": "INR"
+      "currency": "USD"
     },
     {
       "need_key": "photography",
@@ -180,7 +180,7 @@ Retrieve the selected purchase plan, line items, rationale, and latest PayGuard 
       "price_minor": 1600000,
       "timeline_days": 4,
       "verified": true,
-      "currency": "INR"
+      "currency": "USD"
     }
   ],
   "payguard": {
@@ -264,7 +264,7 @@ Capture an approved PayPal order after buyer return. Idempotent: calling again o
   "paypal_order_id": "MOCK-plan-1",
   "capture_id": "MOCK-CAP-MOCK-plan-1",
   "amount_minor": 4096666,
-  "currency": "INR",
+  "currency": "USD",
   "status": "COMPLETED",
   "created_at": "2026-11-10T12:00:02Z"
 }
@@ -288,7 +288,7 @@ Pass `"scenario"` in `POST /api/v1/goals`:
 
 | Scenario | Payload | Expected Outcome |
 |---|---|---|
-| **1. Clean** | `scenario: "clean"`, `budget_minor: 5000000`, catering + photography | Verified providers (`ABC Catering` + `Studio X`), total `4,096,666` paise, verdict `APPROVED`, `/approve` -> `/pay` -> `/payments/capture` -> `PAID` |
+| **1. Clean** | `scenario: "clean"`, `budget_minor: 5000000`, catering + photography | Verified providers (`ABC Catering` + `Studio X`), total `4,096,666` cents, verdict `APPROVED`, `/approve` -> `/pay` -> `/payments/capture` -> `PAID` |
 | **2. Retry** | `scenario: "retry"`, `budget_minor: 5000000`, catering + photography | Discovery starts with strict filters (`min_rating=4.5`, `max_turnaround_days=5`), finds only 1 verified photographer (`Studio X`), orchestrator emits `RETRY` trace events relaxing preference filters (never verification), `LensCraft` appears, plan succeeds |
 | **3. Blocked** | `scenario: "blocked"`, `budget_minor: 3600000`, catering + photography | Discovery includes unverified providers so cheapest combo (`QuickBites Co` + `PixelNest`) fits budget; PayGuard's `VERIFIED_PROVIDER` rule returns `BLOCK`, verdict `BLOCKED`, `/approve` and `/pay` rejected with `409 PLAN_NOT_APPROVED` |
 | **4. Review** | `scenario: "review"`, `budget_minor: 5000000`, raw_text `"Catering for 100 people for our office event"` | Single vendor holds 100% (> 70%) of total; `SINGLE_VENDOR_SHARE` returns `REVIEW`, `/approve` with `[]` rejected (`422 VALIDATION_ERROR`), `/approve` with `["SINGLE_VENDOR_SHARE"]` succeeds |

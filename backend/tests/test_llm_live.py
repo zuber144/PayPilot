@@ -40,7 +40,7 @@ def _live_llm(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_live_goal_agent_parses_without_fallback() -> None:
-    res = goal_agent.run(GOAL, "INR")
+    res = goal_agent.run(GOAL, "USD")
     assert res.fallback is False, res.reason
     assert res.parsed is not None
     categories = {n.category for n in res.parsed.needs}
@@ -50,7 +50,7 @@ def test_live_goal_agent_parses_without_fallback() -> None:
 @pytest.mark.parametrize(
     ("task", "schema", "user"),
     [
-        ("goal_parse", GoalLLMOut, {"raw_text": GOAL, "currency": "INR"}),
+        ("goal_parse", GoalLLMOut, {"raw_text": GOAL, "currency": "USD"}),
         ("route", RouteLLMOut, {"node": "after_discovery", "allowed": ["continue", "retry_discovery"]}),
         ("offer_text", OfferTextLLMOut, {"provider": "ABC Catering", "need": "catering for 100"}),
         ("negotiation_text", NegotiationTextLLMOut, {"provider": "Studio X", "counter_minor": 1_600_000}),

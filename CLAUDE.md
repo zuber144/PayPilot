@@ -124,8 +124,8 @@ Scenario "blocked" => discovery `include_unverified=True`. Scenario "retry" => s
 
 ### `backend/seed.py` (B)
 `def seed(db: Session) -> None` — idempotent (upsert by provider name / user email), commits. `if __name__ == "__main__":`
-calls `init_engine()` then `seed()`. Six providers from work-division doc 3.7, prices in paise; tune
-concession rates so the clean scenario lands near INR 25,000 + 16,000 (ABC 0.0375, Studio X 0.0385 give ~24,966 / 16,000).
+calls `init_engine()` then `seed()`. Six providers from work-division doc 3.7, prices in cents (USD; PayPal Sandbox rejects INR); tune
+concession rates so the clean scenario lands near USD 25,000 + 16,000 (ABC 0.0375, Studio X 0.0385 give ~24,966 / 16,000).
 
 ## Commands (run from `backend/`)
 ```

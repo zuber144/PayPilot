@@ -68,11 +68,11 @@ def test_goal_agent_parses_unique_needs_and_defaults_currency(
         )
 
     monkeypatch.setattr(goal_agent, "call_json", fake_call_json)
-    res = goal_agent.run("Need catering for 100 people and photography", "INR")
+    res = goal_agent.run("Need catering for 100 people and photography", "USD")
     assert res.parsed is not None
     assert res.fallback is False
     assert res.question is None
-    assert res.parsed.currency == "INR"
+    assert res.parsed.currency == "USD"
     assert [n.key for n in res.parsed.needs] == ["catering", "photography"]
     assert res.parsed.needs[0].quantity == 100
 
@@ -82,7 +82,7 @@ def test_goal_agent_empty_needs_sets_question(monkeypatch: pytest.MonkeyPatch) -
         return GoalLLMOut(needs=[], question="What services do you need?")
 
     monkeypatch.setattr(goal_agent, "call_json", fake_call_json)
-    res = goal_agent.run("Help me plan something", "INR")
+    res = goal_agent.run("Help me plan something", "USD")
     assert res.parsed is None
     assert res.fallback is False
     assert res.question == "What services do you need?"
@@ -93,7 +93,7 @@ def test_goal_agent_llm_failure_sets_fallback(monkeypatch: pytest.MonkeyPatch) -
         raise LLMFailure("timeout")
 
     monkeypatch.setattr(goal_agent, "call_json", fake_call_json)
-    res = goal_agent.run("Need catering for 100", "INR")
+    res = goal_agent.run("Need catering for 100", "USD")
     assert res.parsed is None
     assert res.fallback is True
     assert res.question is not None
@@ -162,7 +162,7 @@ def test_provider_agent_fallback_and_clean_and_blocked_planning(
         ),
     )
 
-    # Clean scenario: verified only, budget INR 50,000 (5,000,000 paise)
+    # Clean scenario: verified only, budget USD 50,000 (5,000,000 cents)
     cands_clean, _ = discovery_agent.run(
         providers_list,
         needs,
@@ -181,7 +181,7 @@ def test_provider_agent_fallback_and_clean_and_blocked_planning(
         all_offers.extend(curr)
 
     plan_clean, plan_fb = planning_agent.run(
-        all_offers, needs, providers_by_id, 5_000_000, "INR"
+        all_offers, needs, providers_by_id, 5_000_000, "USD"
     )
     assert plan_clean is not None
     assert plan_fb is False
@@ -190,7 +190,7 @@ def test_provider_agent_fallback_and_clean_and_blocked_planning(
     assert plan_clean.total_minor == 2_496_665 + 1_600_001
     assert all(item.verified for item in plan_clean.items)
 
-    # Blocked scenario: include_unverified=True, budget INR 36,000 (3,600,000 paise)
+    # Blocked scenario: include_unverified=True, budget USD 36,000 (3,600,000 cents)
     cands_blocked, rep_blocked = discovery_agent.run(
         providers_list,
         needs,
@@ -208,7 +208,7 @@ def test_provider_agent_fallback_and_clean_and_blocked_planning(
         blocked_offers = negotiation_agent.run_round(blocked_offers, providers_by_id, r)
 
     plan_blocked, _ = planning_agent.run(
-        blocked_offers, needs, providers_by_id, 3_600_000, "INR"
+        blocked_offers, needs, providers_by_id, 3_600_000, "USD"
     )
     assert plan_blocked is not None
     assert any(not item.verified for item in plan_blocked.items)
@@ -234,12 +234,12 @@ def test_provider_and_planning_llm_failure_fallbacks(
     assert prov_fb is True
     assert all(o.scope for o in offers)
 
-    plan, plan_fb = planning_agent.run(offers, [need], providers_by_id, 5_000_000, "INR")
+    plan, plan_fb = planning_agent.run(offers, [need], providers_by_id, 5_000_000, "USD")
     assert plan is not None
     assert plan_fb is True
     assert "ABC Catering" in plan.rationale
 
     # Budget too low -> returns (None, False)
-    no_plan, no_fb = planning_agent.run(offers, [need], providers_by_id, 100_000, "INR")
+    no_plan, no_fb = planning_agent.run(offers, [need], providers_by_id, 100_000, "USD")
     assert no_plan is None
     assert no_fb is False

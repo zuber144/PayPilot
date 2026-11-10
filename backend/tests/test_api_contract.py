@@ -46,7 +46,7 @@ def test_error_envelope_on_404_422_409(client: TestClient) -> None:
     # 422 VALIDATION_ERROR (request validation failure: budget_minor <= 0)
     r422 = client.post(
         "/api/v1/goals",
-        json={"raw_text": "short", "budget_minor": -10, "currency": "INR"},
+        json={"raw_text": "short", "budget_minor": -10, "currency": "USD"},
     )
     assert r422.status_code == 422
     body422 = r422.json()
@@ -60,7 +60,7 @@ def test_error_envelope_on_404_422_409(client: TestClient) -> None:
         json={
             "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer",
             "budget_minor": 5_000_000,
-            "currency": "INR",
+            "currency": "USD",
             "scenario": "clean",
         },
     )

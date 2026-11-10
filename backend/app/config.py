@@ -45,11 +45,11 @@ class Settings(BaseSettings):
     MAX_PLAN_COMBINATIONS: int = 10_000  # cap for itertools.product enumeration
 
     # PayGuard thresholds (work-division doc 3.5)
-    MAX_TXN_MINOR: int = 10_000_000  # INR 1,00,000.00
+    MAX_TXN_MINOR: int = 10_000_000  # USD 100,000.00 (minor units = cents)
     HIGH_RISK_THRESHOLD: float = 0.7
     MEDIUM_RISK_THRESHOLD: float = 0.4
     SINGLE_VENDOR_SHARE_MAX: float = 0.70
-    SUPPORTED_CURRENCIES: list[str] = ["INR", "USD"]
+    SUPPORTED_CURRENCIES: list[str] = ["USD"]  # PayPal Sandbox rejects INR (CURRENCY_NOT_SUPPORTED)
 
 
 @lru_cache

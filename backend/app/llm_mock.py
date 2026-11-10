@@ -38,7 +38,7 @@ def respond(task: str, system: str, user: str) -> dict[str, Any]:
 
     if task == "goal_parse":
         raw_text = str(payload.get("raw_text") or payload.get("text") or payload.get("goal") or user)
-        currency = str(payload.get("currency") or "INR")
+        currency = str(payload.get("currency") or "USD")
         lowered = raw_text.lower()
         quantity = _extract_quantity(raw_text)
         deadline_days = _extract_deadline_days(raw_text)

@@ -20,7 +20,7 @@ def _providers() -> dict[int, ProviderOut]:
             rating=4.6,
             turnaround_days=7,
             verified=True,
-            currency="INR",
+            currency="USD",
         ),
         2: ProviderOut(
             id=2,
@@ -32,7 +32,7 @@ def _providers() -> dict[int, ProviderOut]:
             rating=4.7,
             turnaround_days=4,
             verified=True,
-            currency="INR",
+            currency="USD",
         ),
     }
 
@@ -47,7 +47,7 @@ def _clean_plan() -> PlanDraft:
                 price_minor=2_500_000,
                 timeline_days=7,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
             PlanItem(
                 need_key="photography",
@@ -56,11 +56,11 @@ def _clean_plan() -> PlanDraft:
                 price_minor=1_600_000,
                 timeline_days=4,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
         ],
         total_minor=4_100_000,
-        currency="INR",
+        currency="USD",
         rationale="Clean plan.",
     )
 
@@ -76,7 +76,7 @@ def test_ai_failure_caps_verdict_at_review(monkeypatch: pytest.MonkeyPatch) -> N
     res = engine.run_payguard(
         plan=plan,
         goal_budget_minor=5_000_000,
-        goal_currency="INR",
+        goal_currency="USD",
         goal_text="Corporate event catering and photography",
         providers=_providers(),
         other_plan_statuses=[],
@@ -95,7 +95,7 @@ def test_ai_cannot_override_deterministic_block() -> None:
     """Work-division 3.9: Even if AI risk score is 0.0, a deterministic BLOCK rule forces Verdict.BLOCKED."""
     plan = _clean_plan()
     # Over budget -> BUDGET_CAP BLOCK
-    policy_results = policy.evaluate(plan, 3_000_000, "INR", _providers(), [])
+    policy_results = policy.evaluate(plan, 3_000_000, "USD", _providers(), [])
     combined = engine.combine(policy_results, risk_score=0.01, ai_flags=[], ai_ok=True)
     assert combined.verdict == Verdict.BLOCKED
 
@@ -103,7 +103,7 @@ def test_ai_cannot_override_deterministic_block() -> None:
 def test_ai_high_and_medium_thresholds() -> None:
     """High risk score (>= 0.7) -> BLOCKED; medium risk score (0.4..0.7) -> REVIEW."""
     plan = _clean_plan()
-    policy_results = policy.evaluate(plan, 5_000_000, "INR", _providers(), [])
+    policy_results = policy.evaluate(plan, 5_000_000, "USD", _providers(), [])
 
     med = engine.combine(
         policy_results,

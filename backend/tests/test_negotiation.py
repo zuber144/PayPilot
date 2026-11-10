@@ -24,7 +24,7 @@ def test_price_never_below_provider_minimum_across_rounds(concession_rate: float
         rating=4.6,
         turnaround_days=7,
         verified=True,
-        currency="INR",
+        currency="USD",
     )
     providers = {1: provider}
     offers = [
@@ -61,7 +61,7 @@ def test_accepted_offers_carry_over_unchanged() -> None:
         rating=4.7,
         turnaround_days=4,
         verified=True,
-        currency="INR",
+        currency="USD",
     )
     providers = {2: provider}
     offers = [
@@ -94,7 +94,7 @@ def test_price_floor_blocks_tampered_plan() -> None:
         rating=4.6,
         turnaround_days=7,
         verified=True,
-        currency="INR",
+        currency="USD",
     )
     tampered_plan = PlanDraft(
         items=[
@@ -105,17 +105,17 @@ def test_price_floor_blocks_tampered_plan() -> None:
                 price_minor=2_399_999,
                 timeline_days=7,
                 verified=True,
-                currency="INR",
+                currency="USD",
             )
         ],
         total_minor=2_399_999,
-        currency="INR",
+        currency="USD",
         rationale="Tampered below floor",
     )
     results = policy.evaluate(
         plan=tampered_plan,
         goal_budget_minor=5_000_000,
-        goal_currency="INR",
+        goal_currency="USD",
         providers={1: provider},
         other_plan_statuses=[],
     )

@@ -57,7 +57,7 @@ def _normalize_needs(raw_needs: list[Need]) -> list[Need]:
 
 def run(raw_text: str, currency: str) -> GoalAgentResult:
     """Parse raw goal text into a validated ParsedGoal or a clarification question."""
-    default_currency = (currency or "INR").strip().upper()
+    default_currency = (currency or "USD").strip().upper()
     if not raw_text or not raw_text.strip():
         return GoalAgentResult(
             parsed=None,

@@ -52,7 +52,7 @@ def make_initial_state(
     goal_id: int,
     raw_text: str,
     budget_minor: int,
-    currency: str = "INR",
+    currency: str = "USD",
     scenario: str | None = None,
     filters: Filters | dict[str, Any] | None = None,
     include_unverified: bool = False,

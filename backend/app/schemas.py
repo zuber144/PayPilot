@@ -53,7 +53,7 @@ class TraceEvent(BaseModel):
 class GoalCreate(BaseModel):
     raw_text: str = Field(min_length=5, max_length=4000)
     budget_minor: int = Field(gt=0)
-    currency: str = Field(default="INR", min_length=3, max_length=3)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
     scenario: Scenario | None = None
 
 
@@ -132,7 +132,7 @@ class PlanItem(BaseModel):
     price_minor: int
     timeline_days: int
     verified: bool
-    currency: str = "INR"
+    currency: str = "USD"
 
 
 class RuleResult(BaseModel):
@@ -203,7 +203,7 @@ class ProviderOut(BaseModel):
     rating: float
     turnaround_days: int
     verified: bool
-    currency: str = "INR"
+    currency: str = "USD"
     persona: str = ""
     demo: bool = True
 

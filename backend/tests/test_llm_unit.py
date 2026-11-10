@@ -23,19 +23,19 @@ def test_llm_mock_goal_parse_catering_and_photography() -> None:
     user = json.dumps(
         {
             "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days",
-            "currency": "INR",
+            "currency": "USD",
         }
     )
     out = call_json("sys", user, GoalLLMOut, task="goal_parse")
     assert [n.key for n in out.needs] == ["catering", "photography"]
     assert out.needs[0].quantity == 100
     assert out.deadline_days == 10
-    assert out.currency == "INR"
+    assert out.currency == "USD"
     assert out.question is None
 
 
 def test_llm_mock_goal_parse_vague_returns_question() -> None:
-    user = json.dumps({"raw_text": "Something nice for our office", "currency": "INR"})
+    user = json.dumps({"raw_text": "Something nice for our office", "currency": "USD"})
     out = call_json("sys", user, GoalLLMOut, task="goal_parse")
     assert out.needs == []
     assert out.question is not None

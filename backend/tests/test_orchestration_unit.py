@@ -63,7 +63,7 @@ def _sample_provider(
         rating=4.7,
         turnaround_days=4,
         verified=verified,
-        currency="INR",
+        currency="USD",
     )
 
 
@@ -158,7 +158,7 @@ def test_router_allowed_actions_table() -> None:
             )
         ],
         total_minor=1_600_000,
-        currency="INR",
+        currency="USD",
         rationale="Best option",
     )
     s7: AgentState = {
@@ -215,7 +215,7 @@ def test_graph_retry_and_persistence_with_mocked_agents(
                         rating=4.7,
                         turnaround_days=4,
                         verified=True,
-                        currency="INR",
+                        currency="USD",
                     ),
                     Provider(
                         id=2,
@@ -227,14 +227,14 @@ def test_graph_retry_and_persistence_with_mocked_agents(
                         rating=4.2,
                         turnaround_days=9,
                         verified=True,
-                        currency="INR",
+                        currency="USD",
                     ),
                 ]
             )
             goal = Goal(
                 raw_text="Photographer for corporate event",
                 budget_minor=3_000_000,
-                currency="INR",
+                currency="USD",
                 scenario="retry",
                 status=GoalStatus.RUNNING.value,
                 trace=[],
@@ -394,7 +394,7 @@ def test_graph_enforces_max_graph_steps(tmp_path: Path, monkeypatch: pytest.Monk
             goal = Goal(
                 raw_text="Catering for 100 people",
                 budget_minor=5_000_000,
-                currency="INR",
+                currency="USD",
                 status=GoalStatus.RUNNING.value,
                 trace=[],
             )
@@ -448,7 +448,7 @@ def test_real_agents_clean_retry_blocked_review_workflows(db) -> None:  # type: 
     g_clean = Goal(
         raw_text=event_text,
         budget_minor=5_000_000,
-        currency="INR",
+        currency="USD",
         scenario="clean",
         status=GoalStatus.RUNNING.value,
         trace=[],
@@ -472,7 +472,7 @@ def test_real_agents_clean_retry_blocked_review_workflows(db) -> None:  # type: 
     g_retry = Goal(
         raw_text=event_text,
         budget_minor=5_000_000,
-        currency="INR",
+        currency="USD",
         scenario="retry",
         status=GoalStatus.RUNNING.value,
         trace=[],
@@ -495,7 +495,7 @@ def test_real_agents_clean_retry_blocked_review_workflows(db) -> None:  # type: 
     g_blocked = Goal(
         raw_text=event_text,
         budget_minor=3_600_000,
-        currency="INR",
+        currency="USD",
         scenario="blocked",
         status=GoalStatus.RUNNING.value,
         trace=[],
@@ -513,7 +513,7 @@ def test_real_agents_clean_retry_blocked_review_workflows(db) -> None:  # type: 
     g_review = Goal(
         raw_text="Catering for 100 people for our office event",
         budget_minor=5_000_000,
-        currency="INR",
+        currency="USD",
         scenario="review",
         status=GoalStatus.RUNNING.value,
         trace=[],

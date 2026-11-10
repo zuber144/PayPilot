@@ -49,7 +49,7 @@ class Provider(Base):
     rating: Mapped[float] = mapped_column(Float)
     turnaround_days: Mapped[int] = mapped_column(Integer)
     verified: Mapped[bool] = mapped_column(Boolean)
-    currency: Mapped[str] = mapped_column(String(3), default="INR")
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
     persona: Mapped[str] = mapped_column(Text, default="")
 
 

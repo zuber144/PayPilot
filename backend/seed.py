@@ -1,6 +1,7 @@
 """Database seed: 6 demo providers (work-division doc 3.7) and 1 demo user.
 
-Idempotent upsert by provider name and user email. All prices are in paise (INR * 100).
+Idempotent upsert by provider name and user email. All prices are in cents (USD * 100).
+The demo uses USD because PayPal Sandbox rejects INR (CURRENCY_NOT_SUPPORTED).
 """
 
 from typing import Any
@@ -20,73 +21,73 @@ SEED_PROVIDERS: list[dict[str, Any]] = [
     {
         "name": "ABC Catering",
         "category": "catering",
-        "base_price_minor": 2_800_000,  # INR 28,000
-        "min_price_minor": 2_400_000,  # INR 24,000
+        "base_price_minor": 2_800_000,  # USD 28,000
+        "min_price_minor": 2_400_000,  # USD 24,000
         "concession_rate": 0.0375,
         "rating": 4.6,
         "turnaround_days": 7,
         "verified": True,
-        "currency": "INR",
+        "currency": "USD",
         "persona": "Trusted corporate and event caterer with full-service buffet setups.",
     },
     {
         "name": "Spice Route Caterers",
         "category": "catering",
-        "base_price_minor": 3_200_000,  # INR 32,000
-        "min_price_minor": 2_700_000,  # INR 27,000
+        "base_price_minor": 3_200_000,  # USD 32,000
+        "min_price_minor": 2_700_000,  # USD 27,000
         "concession_rate": 0.04,
         "rating": 4.4,
         "turnaround_days": 6,
         "verified": True,
-        "currency": "INR",
+        "currency": "USD",
         "persona": "Premium regional Indian cuisine specialist with live stations.",
     },
     {
         "name": "QuickBites Co",
         "category": "catering",
-        "base_price_minor": 2_200_000,  # INR 22,000
-        "min_price_minor": 2_000_000,  # INR 20,000
+        "base_price_minor": 2_200_000,  # USD 22,000
+        "min_price_minor": 2_000_000,  # USD 20,000
         "concession_rate": 0.04,
         "rating": 4.1,
         "turnaround_days": 5,
         "verified": False,
-        "currency": "INR",
+        "currency": "USD",
         "persona": "Low-cost express event caterer for casual parties.",
     },
     {
         "name": "Studio X",
         "category": "photography",
-        "base_price_minor": 1_800_000,  # INR 18,000
-        "min_price_minor": 1_500_000,  # INR 15,000
+        "base_price_minor": 1_800_000,  # USD 18,000
+        "min_price_minor": 1_500_000,  # USD 15,000
         "concession_rate": 0.0385,
         "rating": 4.7,
         "turnaround_days": 4,
         "verified": True,
-        "currency": "INR",
+        "currency": "USD",
         "persona": "Award-winning event photography studio with rapid 4-day delivery.",
     },
     {
         "name": "LensCraft",
         "category": "photography",
-        "base_price_minor": 2_100_000,  # INR 21,000
-        "min_price_minor": 1_750_000,  # INR 17,500
+        "base_price_minor": 2_100_000,  # USD 21,000
+        "min_price_minor": 1_750_000,  # USD 17,500
         "concession_rate": 0.04,
         "rating": 4.2,
         "turnaround_days": 9,
         "verified": True,
-        "currency": "INR",
+        "currency": "USD",
         "persona": "Candid and documentary event photographers with full gallery delivery.",
     },
     {
         "name": "PixelNest",
         "category": "photography",
-        "base_price_minor": 1_400_000,  # INR 14,000
-        "min_price_minor": 1_200_000,  # INR 12,000
+        "base_price_minor": 1_400_000,  # USD 14,000
+        "min_price_minor": 1_200_000,  # USD 12,000
         "concession_rate": 0.05,
         "rating": 4.5,
         "turnaround_days": 3,
         "verified": False,
-        "currency": "INR",
+        "currency": "USD",
         "persona": "Freelance rapid-turnaround photo crew for compact events.",
     },
 ]

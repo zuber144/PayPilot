@@ -30,7 +30,7 @@ def api_db(tmp_path):  # type: ignore[no-untyped-def]
             rating=4.6,
             turnaround_days=7,
             verified=True,
-            currency="INR",
+            currency="USD",
             persona="Reliable caterer",
         )
         p2 = Provider(
@@ -42,7 +42,7 @@ def api_db(tmp_path):  # type: ignore[no-untyped-def]
             rating=4.7,
             turnaround_days=4,
             verified=True,
-            currency="INR",
+            currency="USD",
             persona="Event photographer",
         )
         s.add_all([p1, p2])
@@ -87,7 +87,7 @@ def test_goals_create_get_and_offers(
         json={
             "raw_text": "Need catering for 100 people and photography",
             "budget_minor": 5_000_000,
-            "currency": "INR",
+            "currency": "USD",
             "scenario": "clean",
         },
     )
@@ -134,11 +134,11 @@ def test_goals_create_get_and_offers(
                 "price_minor": 2_520_000,
                 "timeline_days": 7,
                 "verified": True,
-                "currency": "INR",
+                "currency": "USD",
             }
         ],
         total_minor=2_520_000,
-        currency="INR",
+        currency="USD",
         rationale="Good fit",
         payguard_result=_sample_pg().model_dump(mode="json"),
         status=PlanStatus.CHECKED.value,
@@ -177,7 +177,7 @@ def test_plans_payguard_approve_pay_capture_transactions_and_providers(
     goal = Goal(
         raw_text="A" * 100,  # > 80 chars to test goal_summary truncation
         budget_minor=5_000_000,
-        currency="INR",
+        currency="USD",
         status="PLAN_READY",
         trace=[],
     )
@@ -194,11 +194,11 @@ def test_plans_payguard_approve_pay_capture_transactions_and_providers(
                 "price_minor": 2_500_000,
                 "timeline_days": 7,
                 "verified": True,
-                "currency": "INR",
+                "currency": "USD",
             }
         ],
         total_minor=2_500_000,
-        currency="INR",
+        currency="USD",
         rationale="Solid",
         payguard_result=_sample_pg(Verdict.APPROVED).model_dump(mode="json"),
         status=PlanStatus.CHECKED.value,

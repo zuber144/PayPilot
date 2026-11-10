@@ -13,7 +13,7 @@ def _create_goal(
     db: Session,
     raw_text: str = "Corporate event in Bangalore: catering for 100 people and a photographer",
     budget_minor: int = 5_000_000,
-    currency: str = "INR",
+    currency: str = "USD",
     scenario: str | None = None,
 ) -> Goal:
     goal = Goal(

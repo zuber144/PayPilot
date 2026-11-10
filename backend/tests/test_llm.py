@@ -25,7 +25,7 @@ def test_llm_invalid_json_and_timeout_fallbacks(monkeypatch: pytest.MonkeyPatch)
         llm.call_json("sys", "{}", GoalLLMOut, task="goal_parse")
 
     # Goal agent fallback on invalid JSON
-    goal_res = goal_agent.run("Corporate event in Bangalore", "INR")
+    goal_res = goal_agent.run("Corporate event in Bangalore", "USD")
     assert goal_res.parsed is None
     assert goal_res.question is not None and len(goal_res.question) > 0
     assert goal_res.fallback is True
@@ -43,7 +43,7 @@ def test_llm_invalid_json_and_timeout_fallbacks(monkeypatch: pytest.MonkeyPatch)
         "goal_id": 1,
         "raw_text": "Event",
         "budget_minor": 5_000_000,
-        "currency": "INR",
+        "currency": "USD",
         "needs": [Need(key="catering", category="catering", quantity=100)],
         "filters": Filters().model_dump(),
         "candidates": {},
@@ -76,7 +76,7 @@ def test_llm_invalid_json_and_timeout_fallbacks(monkeypatch: pytest.MonkeyPatch)
                 price_minor=2_500_000,
                 timeline_days=7,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
             PlanItem(
                 need_key="photography",
@@ -85,11 +85,11 @@ def test_llm_invalid_json_and_timeout_fallbacks(monkeypatch: pytest.MonkeyPatch)
                 price_minor=1_600_000,
                 timeline_days=4,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
         ],
         total_minor=4_100_000,
-        currency="INR",
+        currency="USD",
     )
     providers = {
         1: ProviderOut(
@@ -102,7 +102,7 @@ def test_llm_invalid_json_and_timeout_fallbacks(monkeypatch: pytest.MonkeyPatch)
             rating=4.6,
             turnaround_days=7,
             verified=True,
-            currency="INR",
+            currency="USD",
         ),
         2: ProviderOut(
             id=2,
@@ -114,13 +114,13 @@ def test_llm_invalid_json_and_timeout_fallbacks(monkeypatch: pytest.MonkeyPatch)
             rating=4.7,
             turnaround_days=4,
             verified=True,
-            currency="INR",
+            currency="USD",
         ),
     }
     score, flags, ai_ok = risk.assess(plan, "Corporate event", 5_000_000)
     assert ai_ok is False
     assert score is None
-    pol = policy.evaluate(plan, 5_000_000, "INR", providers, [])
+    pol = policy.evaluate(plan, 5_000_000, "USD", providers, [])
     pg = engine.combine(pol, score, flags, ai_ok)
     assert pg.verdict == Verdict.REVIEW
     assert any(r.result == RuleOutcome.REVIEW for r in pg.rules)

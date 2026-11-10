@@ -25,7 +25,7 @@ def clear_token_cache() -> None:
 
 
 def minor_to_str(amount_minor: int) -> str:
-    """Convert integer minor units (e.g. paise/cents) to 2-decimal string without floats."""
+    """Convert integer minor units (e.g. cents) to 2-decimal string without floats."""
     if not isinstance(amount_minor, int) or isinstance(amount_minor, bool) or amount_minor < 0:
         raise ValueError(f"Invalid minor amount: {amount_minor!r}")
     whole, cents = divmod(amount_minor, 100)

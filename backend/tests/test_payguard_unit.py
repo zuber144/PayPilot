@@ -28,7 +28,7 @@ def _providers() -> dict[int, ProviderOut]:
             rating=4.6,
             turnaround_days=7,
             verified=True,
-            currency="INR",
+            currency="USD",
         ),
         2: ProviderOut(
             id=2,
@@ -40,7 +40,7 @@ def _providers() -> dict[int, ProviderOut]:
             rating=4.7,
             turnaround_days=4,
             verified=True,
-            currency="INR",
+            currency="USD",
         ),
         3: ProviderOut(
             id=3,
@@ -52,7 +52,7 @@ def _providers() -> dict[int, ProviderOut]:
             rating=4.1,
             turnaround_days=5,
             verified=False,
-            currency="INR",
+            currency="USD",
         ),
     }
 
@@ -68,7 +68,7 @@ def _clean_plan() -> PlanDraft:
                 price_minor=2_500_000,
                 timeline_days=7,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
             PlanItem(
                 need_key="photography",
@@ -77,11 +77,11 @@ def _clean_plan() -> PlanDraft:
                 price_minor=1_600_000,
                 timeline_days=4,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
         ],
         total_minor=4_100_000,
-        currency="INR",
+        currency="USD",
         rationale="Best balanced combination",
     )
 
@@ -91,7 +91,7 @@ def _rule_map(results: list) -> dict[str, RuleOutcome]:
 
 
 def test_policy_all_pass_in_enum_order() -> None:
-    res = policy.evaluate(_clean_plan(), 5_000_000, "INR", _providers(), [])
+    res = policy.evaluate(_clean_plan(), 5_000_000, "USD", _providers(), [])
     expected_ids = [
         RuleId.BUDGET_CAP,
         RuleId.TXN_LIMIT,
@@ -110,15 +110,15 @@ def test_budget_cap_pass_and_fail() -> None:
     provs = _providers()
     plan = _clean_plan()
     # Exact budget passes
-    assert _rule_map(policy.evaluate(plan, 4_100_000, "INR", provs, []))[RuleId.BUDGET_CAP] == RuleOutcome.PASS
+    assert _rule_map(policy.evaluate(plan, 4_100_000, "USD", provs, []))[RuleId.BUDGET_CAP] == RuleOutcome.PASS
     # Over budget blocks
-    assert _rule_map(policy.evaluate(plan, 4_099_999, "INR", provs, []))[RuleId.BUDGET_CAP] == RuleOutcome.BLOCK
+    assert _rule_map(policy.evaluate(plan, 4_099_999, "USD", provs, []))[RuleId.BUDGET_CAP] == RuleOutcome.BLOCK
 
 
 def test_empty_plan_and_zero_total_block() -> None:
     provs = _providers()
-    empty_plan = PlanDraft(items=[], total_minor=0, currency="INR")
-    res_empty = policy.evaluate(empty_plan, 5_000_000, "INR", provs, [])
+    empty_plan = PlanDraft(items=[], total_minor=0, currency="USD")
+    res_empty = policy.evaluate(empty_plan, 5_000_000, "USD", provs, [])
     rmap = _rule_map(res_empty)
     assert rmap[RuleId.BUDGET_CAP] == RuleOutcome.BLOCK
     assert rmap[RuleId.TOTAL_INTEGRITY] == RuleOutcome.BLOCK
@@ -126,7 +126,7 @@ def test_empty_plan_and_zero_total_block() -> None:
     assert combined.verdict == Verdict.BLOCKED
 
     zero_total_plan = _clean_plan().model_copy(update={"total_minor": 0})
-    res_zero = policy.evaluate(zero_total_plan, 5_000_000, "INR", provs, [])
+    res_zero = policy.evaluate(zero_total_plan, 5_000_000, "USD", provs, [])
     rmap_zero = _rule_map(res_zero)
     assert rmap_zero[RuleId.BUDGET_CAP] == RuleOutcome.BLOCK
     assert rmap_zero[RuleId.TOTAL_INTEGRITY] == RuleOutcome.BLOCK
@@ -136,10 +136,10 @@ def test_txn_limit_pass_and_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     provs = _providers()
     plan = _clean_plan()
     monkeypatch.setattr(settings, "MAX_TXN_MINOR", 4_100_000)
-    assert _rule_map(policy.evaluate(plan, 5_000_000, "INR", provs, []))[RuleId.TXN_LIMIT] == RuleOutcome.PASS
+    assert _rule_map(policy.evaluate(plan, 5_000_000, "USD", provs, []))[RuleId.TXN_LIMIT] == RuleOutcome.PASS
 
     monkeypatch.setattr(settings, "MAX_TXN_MINOR", 4_000_000)
-    assert _rule_map(policy.evaluate(plan, 5_000_000, "INR", provs, []))[RuleId.TXN_LIMIT] == RuleOutcome.BLOCK
+    assert _rule_map(policy.evaluate(plan, 5_000_000, "USD", provs, []))[RuleId.TXN_LIMIT] == RuleOutcome.BLOCK
 
 
 def test_verified_provider_uses_db_providers_not_item_claim() -> None:
@@ -154,7 +154,7 @@ def test_verified_provider_uses_db_providers_not_item_claim() -> None:
                 price_minor=2_200_000,
                 timeline_days=5,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
             PlanItem(
                 need_key="photography",
@@ -163,13 +163,13 @@ def test_verified_provider_uses_db_providers_not_item_claim() -> None:
                 price_minor=1_600_000,
                 timeline_days=4,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
         ],
         total_minor=3_800_000,
-        currency="INR",
+        currency="USD",
     )
-    rmap = _rule_map(policy.evaluate(spoofed, 5_000_000, "INR", provs, []))
+    rmap = _rule_map(policy.evaluate(spoofed, 5_000_000, "USD", provs, []))
     assert rmap[RuleId.VERIFIED_PROVIDER] == RuleOutcome.BLOCK
 
     # Unknown provider ID also blocks VERIFIED_PROVIDER and PRICE_FLOOR
@@ -181,7 +181,7 @@ def test_verified_provider_uses_db_providers_not_item_claim() -> None:
             ]
         }
     )
-    rmap_unknown = _rule_map(policy.evaluate(unknown_plan, 5_000_000, "INR", provs, []))
+    rmap_unknown = _rule_map(policy.evaluate(unknown_plan, 5_000_000, "USD", provs, []))
     assert rmap_unknown[RuleId.VERIFIED_PROVIDER] == RuleOutcome.BLOCK
     assert rmap_unknown[RuleId.PRICE_FLOOR] == RuleOutcome.BLOCK
 
@@ -192,22 +192,22 @@ def test_currency_match_pass_and_fail() -> None:
     #Unsupported goal currency
     assert _rule_map(policy.evaluate(plan, 5_000_000, "EUR", provs, []))[RuleId.CURRENCY_MATCH] == RuleOutcome.BLOCK
     # Plan currency != goal currency
-    bad_plan_curr = plan.model_copy(update={"currency": "USD"})
+    bad_plan_curr = plan.model_copy(update={"currency": "EUR"})
     assert (
-        _rule_map(policy.evaluate(bad_plan_curr, 5_000_000, "INR", provs, []))[RuleId.CURRENCY_MATCH]
+        _rule_map(policy.evaluate(bad_plan_curr, 5_000_000, "USD", provs, []))[RuleId.CURRENCY_MATCH]
         == RuleOutcome.BLOCK
     )
     # Item currency != goal currency
     bad_item_curr = plan.model_copy(
         update={
             "items": [
-                plan.items[0].model_copy(update={"currency": "USD"}),
+                plan.items[0].model_copy(update={"currency": "EUR"}),
                 plan.items[1],
             ]
         }
     )
     assert (
-        _rule_map(policy.evaluate(bad_item_curr, 5_000_000, "INR", provs, []))[RuleId.CURRENCY_MATCH]
+        _rule_map(policy.evaluate(bad_item_curr, 5_000_000, "USD", provs, []))[RuleId.CURRENCY_MATCH]
         == RuleOutcome.BLOCK
     )
 
@@ -216,17 +216,17 @@ def test_no_duplicate_pass_and_fail() -> None:
     provs = _providers()
     plan = _clean_plan()
     assert (
-        _rule_map(policy.evaluate(plan, 5_000_000, "INR", provs, [PlanStatus.DRAFT, PlanStatus.CHECKED]))[
+        _rule_map(policy.evaluate(plan, 5_000_000, "USD", provs, [PlanStatus.DRAFT, PlanStatus.CHECKED]))[
             RuleId.NO_DUPLICATE
         ]
         == RuleOutcome.PASS
     )
     assert (
-        _rule_map(policy.evaluate(plan, 5_000_000, "INR", provs, [PlanStatus.PAYING]))[RuleId.NO_DUPLICATE]
+        _rule_map(policy.evaluate(plan, 5_000_000, "USD", provs, [PlanStatus.PAYING]))[RuleId.NO_DUPLICATE]
         == RuleOutcome.BLOCK
     )
     assert (
-        _rule_map(policy.evaluate(plan, 5_000_000, "INR", provs, [PlanStatus.PAID]))[RuleId.NO_DUPLICATE]
+        _rule_map(policy.evaluate(plan, 5_000_000, "USD", provs, [PlanStatus.PAID]))[RuleId.NO_DUPLICATE]
         == RuleOutcome.BLOCK
     )
 
@@ -241,9 +241,9 @@ def test_price_floor_pass_and_fail() -> None:
             plan.items[1],
         ],
         total_minor=3_999_999,
-        currency="INR",
+        currency="USD",
     )
-    assert _rule_map(policy.evaluate(below_floor, 5_000_000, "INR", provs, []))[RuleId.PRICE_FLOOR] == RuleOutcome.BLOCK
+    assert _rule_map(policy.evaluate(below_floor, 5_000_000, "USD", provs, []))[RuleId.PRICE_FLOOR] == RuleOutcome.BLOCK
 
 
 def test_total_integrity_pass_and_fail() -> None:
@@ -251,7 +251,7 @@ def test_total_integrity_pass_and_fail() -> None:
     plan = _clean_plan()
     tampered = plan.model_copy(update={"total_minor": 4_000_000})
     assert (
-        _rule_map(policy.evaluate(tampered, 5_000_000, "INR", provs, []))[RuleId.TOTAL_INTEGRITY] == RuleOutcome.BLOCK
+        _rule_map(policy.evaluate(tampered, 5_000_000, "USD", provs, []))[RuleId.TOTAL_INTEGRITY] == RuleOutcome.BLOCK
     )
 
 
@@ -267,7 +267,7 @@ def test_single_vendor_share_pass_and_review() -> None:
                 price_minor=2_870_000,
                 timeline_days=7,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
             PlanItem(
                 need_key="photography",
@@ -276,14 +276,14 @@ def test_single_vendor_share_pass_and_review() -> None:
                 price_minor=1_230_000,
                 timeline_days=4,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
         ],
         total_minor=4_100_000,
-        currency="INR",
+        currency="USD",
     )
     assert (
-        _rule_map(policy.evaluate(exact_70, 5_000_000, "INR", provs, []))[RuleId.SINGLE_VENDOR_SHARE]
+        _rule_map(policy.evaluate(exact_70, 5_000_000, "USD", provs, []))[RuleId.SINGLE_VENDOR_SHARE]
         == RuleOutcome.PASS
     )
 
@@ -294,10 +294,10 @@ def test_single_vendor_share_pass_and_review() -> None:
             exact_70.items[1].model_copy(update={"price_minor": 1_229_999}),
         ],
         total_minor=4_100_000,
-        currency="INR",
+        currency="USD",
     )
     assert (
-        _rule_map(policy.evaluate(over_70, 5_000_000, "INR", provs, []))[RuleId.SINGLE_VENDOR_SHARE]
+        _rule_map(policy.evaluate(over_70, 5_000_000, "USD", provs, []))[RuleId.SINGLE_VENDOR_SHARE]
         == RuleOutcome.REVIEW
     )
 
@@ -311,7 +311,7 @@ def test_single_vendor_share_pass_and_review() -> None:
                 price_minor=2_000_000,
                 timeline_days=7,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
             PlanItem(
                 need_key="dinner",
@@ -320,7 +320,7 @@ def test_single_vendor_share_pass_and_review() -> None:
                 price_minor=2_000_000,
                 timeline_days=7,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
             PlanItem(
                 need_key="photography",
@@ -329,14 +329,14 @@ def test_single_vendor_share_pass_and_review() -> None:
                 price_minor=1_000_000,
                 timeline_days=4,
                 verified=True,
-                currency="INR",
+                currency="USD",
             ),
         ],
         total_minor=5_000_000,
-        currency="INR",
+        currency="USD",
     )
     assert (
-        _rule_map(policy.evaluate(multi_item_same_vendor, 5_000_000, "INR", provs, []))[RuleId.SINGLE_VENDOR_SHARE]
+        _rule_map(policy.evaluate(multi_item_same_vendor, 5_000_000, "USD", provs, []))[RuleId.SINGLE_VENDOR_SHARE]
         == RuleOutcome.REVIEW
     )
 
@@ -372,7 +372,7 @@ def test_risk_assess_success_and_failure(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_engine_combine_ordering_and_thresholds() -> None:
-    pol = policy.evaluate(_clean_plan(), 5_000_000, "INR", _providers(), [])
+    pol = policy.evaluate(_clean_plan(), 5_000_000, "USD", _providers(), [])
 
     # Low risk -> APPROVED, 10 rules in RuleId order
     res_low = engine.combine(pol, 0.1, [Flag(id="AI:note", source="AI", message="looks good")], True)
@@ -399,7 +399,7 @@ def test_engine_combine_ordering_and_thresholds() -> None:
 
 
 def test_ai_failure_caps_verdict_at_review() -> None:
-    pol = policy.evaluate(_clean_plan(), 5_000_000, "INR", _providers(), [])
+    pol = policy.evaluate(_clean_plan(), 5_000_000, "USD", _providers(), [])
     res = engine.combine(pol, None, [], False)
     assert res.ai_ok is False
     assert res.verdict == Verdict.REVIEW
@@ -414,7 +414,7 @@ def test_ai_failure_caps_verdict_at_review() -> None:
 
 def test_ai_cannot_override_policy_block() -> None:
     # Over-budget plan causes BUDGET_CAP == BLOCK
-    pol = policy.evaluate(_clean_plan(), 1_000_000, "INR", _providers(), [])
+    pol = policy.evaluate(_clean_plan(), 1_000_000, "USD", _providers(), [])
     # Even with risk_score = 0.0 and ai_ok = True, verdict is BLOCKED
     res_ok = engine.combine(pol, 0.0, [], True)
     assert res_ok.verdict == Verdict.BLOCKED
@@ -440,7 +440,7 @@ def test_run_for_plan_detects_tampered_total_and_duplicate() -> None:
             rating=4.6,
             turnaround_days=7,
             verified=True,
-            currency="INR",
+            currency="USD",
         )
         p2 = Provider(
             id=2,
@@ -452,13 +452,13 @@ def test_run_for_plan_detects_tampered_total_and_duplicate() -> None:
             rating=4.7,
             turnaround_days=4,
             verified=True,
-            currency="INR",
+            currency="USD",
         )
         goal = Goal(
             id=10,
             raw_text="Corporate event catering and photography",
             budget_minor=5_000_000,
-            currency="INR",
+            currency="USD",
             status="PLAN_READY",
         )
         items_json = [i.model_dump() for i in _clean_plan().items]
@@ -467,7 +467,7 @@ def test_run_for_plan_detects_tampered_total_and_duplicate() -> None:
             goal_id=10,
             items=items_json,
             total_minor=4_100_000,
-            currency="INR",
+            currency="USD",
             rationale="Clean plan",
             status=PlanStatus.CHECKED,
         )
@@ -476,7 +476,7 @@ def test_run_for_plan_detects_tampered_total_and_duplicate() -> None:
             goal_id=10,
             items=items_json,
             total_minor=1_000,  # tampered stored total != sum(items)
-            currency="INR",
+            currency="USD",
             rationale="Tampered plan",
             status=PlanStatus.CHECKED,
         )
