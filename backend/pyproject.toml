@@ -1,0 +1,17 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = true
+exclude = ["\\.venv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: needs real OpenAI/PayPal Sandbox credentials (skipped otherwise)"]
