@@ -14,5 +14,6 @@ exclude = ["\\.venv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["live: needs real OpenAI/PayPal Sandbox credentials (skipped otherwise)"]
+markers = ["live: needs real LLM/PayPal Sandbox credentials; opt-in with `pytest -m live` (skipped without keys)"]
+addopts = "-m 'not live'"
 

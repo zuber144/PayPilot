@@ -17,10 +17,14 @@ Autonomous backend build. Each decision is final unless a test or reviewer defec
 13. **Orchestrator in Antigravity** — the brief assumed Claude Code subagents (`.claude/agents/`). This run uses Antigravity subagents with the same roles (builders, tester, reviewer). They all run on the selected model, so per-role model choice and `/cost` budget checks don't apply here; the time and iteration limits are enforced instead.
 
 
-## D-F2 (finish pass): Postgres verification without Docker
-Docker is not installed on the dev laptop. Step 2 was verified against PostgreSQL 16.14
+14. **Postgres verification without Docker (finish pass)** — Docker is not installed on the dev laptop. Step 2 was verified against PostgreSQL 16.14
 portable binaries (EDB zip, extracted to `.pg/`, gitignored) on port 5432 with the same
 agentos/agentos/agentos credentials as docker-compose.yml. docker-compose.yml is unchanged
 and remains the recommended path. `scripts/run_scenarios.py --base-url URL` now drives a
 running uvicorn over real HTTP (polls RUNNING goals, bounded at 60 s) in addition to the
 default in-process mode.
+15. **LLM provider: Anthropic Claude Haiku 5.5 (finish pass)** — at the user's request `app/llm.py` gained an
+`LLM_PROVIDER` switch (default `anthropic`, model `claude-haiku-5-5`, effort `low`) using structured outputs
+constrained to each task's Pydantic schema; the OpenAI path and every deterministic fallback are unchanged.
+The key is read from `ANTHROPIC_API_KEY` (shell env or `.env`), never logged. Startup logs the active provider.
+Live tests are now opt-in (`addopts = -m 'not live'`) so plain `pytest` never spends money.

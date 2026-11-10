@@ -109,6 +109,7 @@ def test_call_json_raises_llm_failure_on_schema_validation_error(monkeypatch: py
 def test_call_json_raises_llm_failure_on_timeout_never_logs_key(monkeypatch: pytest.MonkeyPatch) -> None:
     secret = "sk-super-secret-test-key-999"
     monkeypatch.setattr(settings, "OPENAI_API_KEY", secret)
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", secret)
 
     def fake_raw(system: str, user: str, task: str) -> str:
         raise TimeoutError(f"Request timed out using {secret}")

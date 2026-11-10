@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -28,6 +29,11 @@ def _error_response(code: ErrorCode, message: str, status_code: int) -> JSONResp
 def create_app(init_db: bool = True) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        from app.llm import active_provider
+
+        logging.getLogger("uvicorn.error").info(
+            "AgentOS: LLM=%s PAYPAL_MODE=%s", active_provider(), settings.PAYPAL_MODE
+        )
         if init_db:
             db_module.init_engine()
             try:

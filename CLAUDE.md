@@ -45,8 +45,11 @@ def call_json(system: str, user: str, schema_model: type[T], *, task: str) -> T
 - `task` ∈ {"goal_parse","route","offer_text","negotiation_text","plan_rationale","risk"}.
 - Mock mode (`settings.LLM_MODE=="mock"` or no key): delegates to `app.llm_mock.respond(task, system, user) -> dict`
   then validates with `schema_model`. Deterministic.
-- Live mode: OpenAI JSON mode, timeout `LLM_TIMEOUT_SECONDS`, `LLM_RETRIES` retry on invalid JSON/validation error,
-  then raise `LLMFailure`. Timeouts/API errors also raise `LLMFailure`.
+- Live mode (`LLM_PROVIDER`): `anthropic` (default; `ANTHROPIC_MODEL=claude-haiku-5-5`, structured outputs
+  constrained to `schema_model` via `anthropic.transform_schema`, no temperature, refusal/max_tokens -> error) or
+  `openai` (JSON mode). Timeout `LLM_TIMEOUT_SECONDS`, SDK retries off, `LLM_RETRIES` retry on invalid
+  JSON/validation error, then raise `LLMFailure`. Timeouts/API errors also raise `LLMFailure`.
+  Live smoke test: `pytest -m live tests/test_llm_live.py` (live tests are opt-in; default pytest runs offline).
 - The raw transport is a module-level function `_raw_completion(system, user, task) -> str` so tests can monkeypatch it
   (to return invalid JSON or raise TimeoutError) — when monkeypatched, it is used in both modes. Concretely:
   `call_json` always calls `_raw_completion`; in mock mode `_raw_completion` returns `json.dumps(llm_mock.respond(...))`.

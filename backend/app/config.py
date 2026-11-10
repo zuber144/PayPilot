@@ -13,8 +13,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./agentos.db"  # docker-compose Postgres: see .env.example
     FRONTEND_URL: str = "http://localhost:5173"
 
-    # LLM. "mock" (default) never touches the network; "live" requires OPENAI_API_KEY.
+    # LLM. "mock" (default) never touches the network; "live" requires the selected
+    # provider's API key (falls back to mock if it is missing).
     LLM_MODE: Literal["mock", "live"] = "mock"
+    LLM_PROVIDER: Literal["anthropic", "openai"] = "anthropic"
+    ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_MODEL: str = "claude-haiku-5-5"
+    ANTHROPIC_EFFORT: Literal["low", "medium", "high"] = "low"
+    ANTHROPIC_MAX_TOKENS: int = 4096
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
     LLM_TIMEOUT_SECONDS: float = 20.0
