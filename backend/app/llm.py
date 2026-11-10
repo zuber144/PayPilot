@@ -57,6 +57,8 @@ def call_json(system: str, user: str, schema_model: type[T], *, task: str) -> T:
     Retries `settings.LLM_RETRIES` times on invalid JSON or Pydantic ValidationError.
     Transport errors or timeouts raise `LLMFailure` immediately.
     """
+    if task not in VALID_TASKS:
+        raise LLMFailure(f"Unsupported LLM task: {task!r}")
     attempts = 1 + max(0, int(settings.LLM_RETRIES))
     last_error: Exception | None = None
 

@@ -27,11 +27,16 @@ def run_round(
     offers: list[OfferDraft],
     providers: dict[int, ProviderOut],
     round_no: int,
+    *,
+    allow_revision: bool = False,
 ) -> list[OfferDraft]:
     """Run one bounded negotiation round using exact integer arithmetic."""
-    if round_no < 1 or round_no > settings.MAX_NEGOTIATION_ROUNDS:
+    max_rounds = settings.MAX_NEGOTIATION_ROUNDS + (
+        settings.MAX_PLAN_REVISIONS if allow_revision else 0
+    )
+    if round_no < 1 or round_no > max_rounds:
         raise ValueError(
-            f"round_no must be between 1 and {settings.MAX_NEGOTIATION_ROUNDS}, got {round_no}"
+            f"round_no must be between 1 and {max_rounds}, got {round_no}"
         )
 
     result: list[OfferDraft] = []

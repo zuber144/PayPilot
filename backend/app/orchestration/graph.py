@@ -307,16 +307,25 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
         retries["negotiation"] = round_no
         state["retries"] = retries
 
-        effective_round = max(1, min(round_no, settings.MAX_NEGOTIATION_ROUNDS))
-        raw_offers: list[OfferDraft] = na.run_round(
-            state.get("offers", []),
-            state.get("providers_by_id", {}),
-            effective_round,
-        )
-        updated_offers: list[OfferDraft] = [
-            o.model_copy(update={"round": round_no}) if o.round != round_no else o
-            for o in raw_offers
-        ]
+        allow_rev = int(retries.get("plan_revision", 0)) > 0
+        try:
+            updated_offers: list[OfferDraft] = na.run_round(
+                state.get("offers", []),
+                state.get("providers_by_id", {}),
+                round_no,
+                allow_revision=allow_rev,
+            )
+        except TypeError:
+            effective_round = max(1, min(round_no, settings.MAX_NEGOTIATION_ROUNDS))
+            raw_offers: list[OfferDraft] = na.run_round(
+                state.get("offers", []),
+                state.get("providers_by_id", {}),
+                effective_round,
+            )
+            updated_offers = [
+                o.model_copy(update={"round": round_no}) if o.round != round_no else o
+                for o in raw_offers
+            ]
         state["offers"] = list(updated_offers)
         all_offers = list(state.get("all_offers") or [])
         all_offers.extend(updated_offers)
@@ -556,6 +565,17 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
                 f"Insufficient verified coverage for '{target_need}'; "
                 f"retrying discovery ({attempt}/{settings.MAX_DISCOVERY_RETRIES})"
             )
+            if fallback_used:
+                append_trace(
+                    state,
+                    node=TraceNode.ORCHESTRATOR,
+                    action="router_fallback",
+                    status=TraceStatus.FALLBACK,
+                    summary="Router fell back to default action 'retry_discovery'",
+                    reason=reason,
+                    duration_ms=duration,
+                    data={"allowed": [a.value for a in allowed], "default": Action.RETRY_DISCOVERY.value},
+                )
             append_trace(
                 state,
                 node=TraceNode.ORCHESTRATOR,
@@ -564,7 +584,12 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
                 summary=retry_summary,
                 reason=retry_reason,
                 duration_ms=duration,
-                data={"relaxed": list(relaxed), "attempt": attempt, "allowed": [a.value for a in allowed]},
+                data={
+                    "relaxed": list(relaxed),
+                    "attempt": attempt,
+                    "allowed": [a.value for a in allowed],
+                    "fallback": fallback_used,
+                },
             )
             _persist_goal_progress(db, state)
             return state
