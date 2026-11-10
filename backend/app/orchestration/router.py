@@ -111,9 +111,13 @@ def allowed_actions(state: AgentState) -> list[Action]:
             return [Action.REVISE_PLAN, Action.ASK_USER]
         return [Action.ASK_USER]
 
-    # 3. Offers ready -> negotiate (if rounds < MAX_NEGOTIATION_ROUNDS), plan
+    # 3. Offers ready -> negotiate (if rounds < MAX_NEGOTIATION_ROUNDS), plan.
+    #    At least one negotiation round is mandatory: with no round run yet, negotiate is the
+    #    only allowed action, so the LLM cannot skip straight to planning at list price.
     if state.get("offers"):
         if negotiation_rounds < settings.MAX_NEGOTIATION_ROUNDS:
+            if negotiation_rounds == 0:
+                return [Action.NEGOTIATE]
             return [Action.NEGOTIATE, Action.PLAN]
         return [Action.PLAN]
 

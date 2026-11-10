@@ -116,3 +116,79 @@ def test_router_invalid_llm_output_falls_back(db: Session, monkeypatch: pytest.M
         if ev.get("node") == TraceNode.ORCHESTRATOR and ev.get("status") == TraceStatus.FALLBACK
     ]
     assert len(fallback_events) >= 1
+
+
+def test_negotiation_is_mandatory_before_planning() -> None:
+    """With offers and no negotiation round yet, negotiate is the only allowed action."""
+    from app.enums import Action
+    from app.orchestration import router
+    from app.schemas import Need, OfferDraft
+
+    offer = OfferDraft(need_key="photography", provider_id=1, round=0, price_minor=1_800_000, timeline_days=4)
+    base = {"needs": [Need(key="photography", category="photography")], "offers": [offer]}
+
+    round0 = {**base, "retries": {"discovery": 0, "negotiation": 0, "plan_revision": 0}}
+    assert router.allowed_actions(round0) == [Action.NEGOTIATE]  # type: ignore[arg-type]
+
+    round1 = {**base, "retries": {"discovery": 0, "negotiation": 1, "plan_revision": 0}}
+    assert router.allowed_actions(round1) == [Action.NEGOTIATE, Action.PLAN]  # type: ignore[arg-type]
+
+
+def test_negotiation_disabled_by_config_goes_straight_to_plan(monkeypatch: pytest.MonkeyPatch) -> None:
+    """MAX_NEGOTIATION_ROUNDS=0 still bounds the loop: plan is the only action."""
+    from app.enums import Action
+    from app.orchestration import router
+    from app.schemas import Need, OfferDraft
+
+    monkeypatch.setattr(settings, "MAX_NEGOTIATION_ROUNDS", 0)
+    offer = OfferDraft(need_key="photography", provider_id=1, round=0, price_minor=1_800_000, timeline_days=4)
+    state = {
+        "needs": [Need(key="photography", category="photography")],
+        "offers": [offer],
+        "retries": {"discovery": 0, "negotiation": 0, "plan_revision": 0},
+    }
+    assert router.allowed_actions(state) == [Action.PLAN]  # type: ignore[arg-type]
+
+
+def test_router_llm_preferring_plan_still_negotiates_below_list_price(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: the live router LLM skipped negotiation and paid list price.
+
+    A router that always picks 'plan' when allowed must still get at least one negotiation round,
+    so the clean plan total lands below the providers' base (list) prices.
+    """
+    import json
+
+    from app import llm
+    from app.models import Plan
+
+    orig_raw = llm._raw_completion
+    allowed_seen: list[list[str]] = []
+
+    def plan_happy_router(system: str, user: str, task: str) -> str:
+        if task == "route":
+            allowed = json.loads(user)["allowed"]
+            allowed_seen.append(allowed)
+            pick = "plan" if "plan" in allowed else allowed[0]
+            return json.dumps({"action": pick, "reason": "prefer planning"})
+        return orig_raw(system, user, task)
+
+    monkeypatch.setattr(llm, "_raw_completion", plan_happy_router)
+
+    goal = _create_goal(db, scenario=Scenario.CLEAN)
+    graph.run_workflow(goal.id)
+
+    db.expire_all()
+    updated = db.get(Goal, goal.id)
+    assert updated is not None
+    assert updated.status == GoalStatus.PLAN_READY
+    assert ["negotiate"] in allowed_seen, allowed_seen
+    negotiation_events = [ev for ev in updated.trace if ev.get("node") == TraceNode.NEGOTIATION]
+    assert len(negotiation_events) >= 1
+    assert not [ev for ev in updated.trace if ev.get("status") == TraceStatus.FALLBACK]
+
+    plan = db.query(Plan).filter(Plan.goal_id == goal.id).one()
+    by_name = {p.name: p.base_price_minor for p in db.query(Provider).all()}
+    list_total = sum(by_name[item["provider_name"]] for item in plan.items)
+    assert plan.total_minor < list_total, (plan.total_minor, list_total)

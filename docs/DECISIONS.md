@@ -33,3 +33,8 @@ Live tests are now opt-in (`addopts = -m 'not live'`) so plain `pytest` never sp
 personal Sandbox accounts. Live end-to-end run (Postgres, Claude Haiku 5.5, PAYPAL_MODE=sandbox): clean goal ->
 APPROVED -> /approve -> /pay -> buyer approved in browser -> /payments/capture. Order `9PG11902P8810833V`,
 **capture ID `4H067940UN781852J`**, USD 46,000.00, COMPLETED; plan PAID; repeat capture idempotent.
+17. **Mandatory first negotiation round (finish pass)** — the live Claude router skipped negotiation on the clean
+goal and planned at list price (4,600,000). Fixed in code, not the prompt: `router.allowed_actions()` returns only
+`[negotiate]` when offers exist and no round has run (`MAX_NEGOTIATION_ROUNDS=0` still yields `[plan]`). The LLM
+chooses freely between negotiate and plan only after round 1. Live clean now 4,425,700 vs 4,600,000 list
+(ABC 2,695,000, Studio X 1,730,700); mock unchanged at 4,096,666. Regression tests in `tests/test_orchestration.py`.

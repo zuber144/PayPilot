@@ -109,6 +109,8 @@ def run_workflow(goal_id: int) -> None   # graph.py; opens its own SessionLocal;
 Persists: goal.parsed, goal.status, goal.question, trace (commit after each node so polling sees it live),
 offer rows (one per round), plan row (status CHECKED, payguard_result), offer status SELECTED for chosen offers.
 Scenario "blocked" => discovery `include_unverified=True`. Scenario "retry" => strict initial filters.
+Router: once offers exist, at least one negotiation round is mandatory. With `retries["negotiation"] == 0`,
+`allowed_actions()` returns only `[negotiate]`; the LLM may choose `plan` only after a round has run (enforced in code).
 
 ### `app/payments/*` + routers (D)
 - `paypal.py`: `minor_to_str`, `get_access_token()` (cached), `create_order(amount_str, currency, return_url, cancel_url, request_id) -> dict`,
