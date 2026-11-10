@@ -48,3 +48,13 @@ Thumbs.db
 
 # Docker volumes
 pgdata/
+.venv/
+__pycache__/
+*.pyc
+.env
+*.db
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.pg/

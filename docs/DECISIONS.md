@@ -1,0 +1,40 @@
+# Decisions log
+
+Autonomous backend build. Each decision is final unless a test or reviewer defect forces a change.
+
+1. **No pandoc available** — converted the .docx specs to markdown with a small Python script (`docs/*.md`).
+2. **Addendum out of scope** — `PayPal_AgentOS_PayGuard_Addendum_Additions.docx` (ML models, injection classifier, AUTHORIZE flow, etc.) was not part of the brief. Only the kill switch (`PAYMENTS_ENABLED`) was adopted because it is cheap.
+3. **Default DB is SQLite** (`sqlite:///./agentos.db`) so everything runs offline with no Docker. PostgreSQL via `docker-compose.yml` is supported by setting `DATABASE_URL`; JSON columns use JSONB on Postgres.
+4. **Mock modes are defaults**: `LLM_MODE=mock`, `PAYPAL_MODE=mock`. The LLM mock is deterministic (keyword goal parsing, router picks the default action, risk 0.1).
+5. **Contract extensions** beyond the spec's table columns: `goals.scenario`, `goals.question`, `offers.counter_minor`, `plans.acknowledged_flags`, `providers.currency`, `transactions.request_id`, `transactions.approval_url`. Needed for the scenario hint, NEEDS_INPUT question, negotiation-round display, approval acks and idempotency.
+6. **AI failure cap** — when the risk call fails, both AI_RISK_HIGH and AI_RISK_MEDIUM return REVIEW ("AI risk check unavailable"), so the verdict can never be APPROVED and the user must acknowledge.
+7. **Flags requiring acknowledgement** = every rule whose result is REVIEW (flag id = rule id). AI informational flags (`AI:<id>`) never need acknowledgement.
+8. **Blocked scenario** — discovery normally drops unverified providers. The `blocked` scenario hint sets `include_unverified=True` (a deliberately misconfigured discovery) so PayGuard's independent VERIFIED_PROVIDER rule is demonstrated catching it. Budget INR 36,000 makes the cheapest combination use an unverified provider.
+9. **Review scenario** — goal asks only for catering, so a single vendor holds 100% of the total and SINGLE_VENDOR_SHARE returns REVIEW.
+10. **Retry scenario** — strict filters min_rating 4.5 / max_turnaround 5; retry 1 drops min_rating, retry 2 drops max_turnaround. Verification never relaxed.
+11. **NEEDS_INPUT answering** — the 10-route contract has no "answer" route, so the user submits a new goal. Not implemented beyond storing the question.
+12. **Error status codes** — PLAN_NOT_APPROVED/DUPLICATE_PAYMENT/CONFLICT 409, VALIDATION_ERROR 422, NOT_FOUND 404, PAYPAL_ERROR 502, PAYMENTS_DISABLED 503.
+13. **Orchestrator in Antigravity** — the brief assumed Claude Code subagents (`.claude/agents/`). This run uses Antigravity subagents with the same roles (builders, tester, reviewer). They all run on the selected model, so per-role model choice and `/cost` budget checks don't apply here; the time and iteration limits are enforced instead.
+
+
+14. **Postgres verification without Docker (finish pass)** — Docker is not installed on the dev laptop. Step 2 was verified against PostgreSQL 16.14
+portable binaries (EDB zip, extracted to `.pg/`, gitignored) on port 5432 with the same
+agentos/agentos/agentos credentials as docker-compose.yml. docker-compose.yml is unchanged
+and remains the recommended path. `scripts/run_scenarios.py --base-url URL` now drives a
+running uvicorn over real HTTP (polls RUNNING goals, bounded at 60 s) in addition to the
+default in-process mode.
+15. **LLM provider: Anthropic Claude Haiku 5.5 (finish pass)** — at the user's request `app/llm.py` gained an
+`LLM_PROVIDER` switch (default `anthropic`, model `claude-haiku-5-5`, effort `low`) using structured outputs
+constrained to each task's Pydantic schema; the OpenAI path and every deterministic fallback are unchanged.
+The key is read from `ANTHROPIC_API_KEY` (shell env or `.env`), never logged. Startup logs the active provider.
+Live tests are now opt-in (`addopts = -m 'not live'`) so plain `pytest` never spends money.
+16. **PayPal Sandbox currency and live capture (finish pass)** — Sandbox `create_order` in INR returned
+`422 CURRENCY_NOT_SUPPORTED`, and India sandbox accounts could not pay. The demo is USD-only, using US business and
+personal Sandbox accounts. Live end-to-end run (Postgres, Claude Haiku 5.5, PAYPAL_MODE=sandbox): clean goal ->
+APPROVED -> /approve -> /pay -> buyer approved in browser -> /payments/capture. Order `9PG11902P8810833V`,
+**capture ID `4H067940UN781852J`**, USD 46,000.00, COMPLETED; plan PAID; repeat capture idempotent.
+17. **Mandatory first negotiation round (finish pass)** — the live Claude router skipped negotiation on the clean
+goal and planned at list price (4,600,000). Fixed in code, not the prompt: `router.allowed_actions()` returns only
+`[negotiate]` when offers exist and no round has run (`MAX_NEGOTIATION_ROUNDS=0` still yields `[plan]`). The LLM
+chooses freely between negotiate and plan only after round 1. Live clean now 4,425,700 vs 4,600,000 list
+(ABC 2,695,000, Studio X 1,730,700); mock unchanged at 4,096,666. Regression tests in `tests/test_orchestration.py`.
