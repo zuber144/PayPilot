@@ -10,6 +10,7 @@ import os
 import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -71,11 +72,19 @@ def check(cond: bool, msg: str) -> None:
         raise Fail(msg)
 
 
+GOAL_POLL_SECONDS = 60.0
+
+
 def start_goal(c: TestClient, text: str, budget: int, scenario: str) -> tuple[dict, dict | None]:
     r = c.post(f"{API}/goals", json={"raw_text": text, "budget_minor": budget, "currency": "INR", "scenario": scenario})
     check(r.status_code in (200, 201, 202), f"POST /goals -> {r.status_code} {r.text}")
     gid = r.json()["id"]
+    # Over real HTTP the background workflow finishes after the response; poll (bounded).
+    deadline = time.monotonic() + GOAL_POLL_SECONDS
     goal = c.get(f"{API}/goals/{gid}").json()
+    while goal["status"] == "RUNNING" and time.monotonic() < deadline:
+        time.sleep(0.25)
+        goal = c.get(f"{API}/goals/{gid}").json()
     plan = c.get(f"{API}/plans/{goal['plan_id']}").json() if goal.get("plan_id") else None
     return goal, plan
 
@@ -156,12 +165,43 @@ def review(c: TestClient) -> str:
     return f"REVIEW; approval needed acks {needed}; pay allowed after ack"
 
 
+SCENARIOS = [("clean", clean), ("retry", retry), ("blocked", blocked), ("review", review)]
+
+
+def main_live(base_url: str) -> list[tuple[str, bool, str]]:
+    import httpx
+
+    results: list[tuple[str, bool, str]] = []
+    with httpx.Client(base_url=base_url, timeout=30.0) as c:
+        providers = c.get(f"{API}/providers")
+        check(providers.status_code == 200, f"server not ready at {base_url}: {providers.status_code}")
+        check(len(providers.json()) >= 6, "database not seeded (expected >= 6 providers)")
+        for name, fn in SCENARIOS:
+            try:
+                results.append((name, True, fn(c)))  # type: ignore[arg-type]
+            except Exception as e:  # noqa: BLE001
+                results.append((name, False, f"{type(e).__name__}: {e}"))
+    return results
+
+
 def main() -> int:
+    if "--base-url" in sys.argv:
+        results = main_live(sys.argv[sys.argv.index("--base-url") + 1])
+    else:
+        results = main_inprocess()
+    for name, ok, msg in results:
+        print(f"[{'PASS' if ok else 'FAIL'}] {name}: {msg}")
+    passed = sum(ok for _, ok, _ in results)
+    print(f"{passed}/{len(results)} scenarios passed")
+    return 0 if passed == len(results) else 1
+
+
+def main_inprocess() -> list[tuple[str, bool, str]]:
     from app.main import create_app
     from seed import seed
 
     results: list[tuple[str, bool, str]] = []
-    for name, fn in [("clean", clean), ("retry", retry), ("blocked", blocked), ("review", review)]:
+    for name, fn in SCENARIOS:
         with tempfile.TemporaryDirectory() as tmp:
             eng = db_module.init_engine(f"sqlite:///{Path(tmp) / 's.db'}")
             with db_module.SessionLocal() as s:
@@ -173,11 +213,7 @@ def main() -> int:
                 results.append((name, False, f"{type(e).__name__}: {e}"))
             finally:
                 eng.dispose()
-    for name, ok, msg in results:
-        print(f"[{'PASS' if ok else 'FAIL'}] {name}: {msg}")
-    passed = sum(ok for _, ok, _ in results)
-    print(f"{passed}/{len(results)} scenarios passed")
-    return 0 if passed == len(results) else 1
+    return results
 
 
 if __name__ == "__main__":

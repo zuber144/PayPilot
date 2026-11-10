@@ -16,3 +16,11 @@ Autonomous backend build. Each decision is final unless a test or reviewer defec
 12. **Error status codes** — PLAN_NOT_APPROVED/DUPLICATE_PAYMENT/CONFLICT 409, VALIDATION_ERROR 422, NOT_FOUND 404, PAYPAL_ERROR 502, PAYMENTS_DISABLED 503.
 13. **Orchestrator in Antigravity** — the brief assumed Claude Code subagents (`.claude/agents/`). This run uses Antigravity subagents with the same roles (builders, tester, reviewer). They all run on the selected model, so per-role model choice and `/cost` budget checks don't apply here; the time and iteration limits are enforced instead.
 
+
+## D-F2 (finish pass): Postgres verification without Docker
+Docker is not installed on the dev laptop. Step 2 was verified against PostgreSQL 16.14
+portable binaries (EDB zip, extracted to `.pg/`, gitignored) on port 5432 with the same
+agentos/agentos/agentos credentials as docker-compose.yml. docker-compose.yml is unchanged
+and remains the recommended path. `scripts/run_scenarios.py --base-url URL` now drives a
+running uvicorn over real HTTP (polls RUNNING goals, bounded at 60 s) in addition to the
+default in-process mode.
