@@ -28,3 +28,8 @@ default in-process mode.
 constrained to each task's Pydantic schema; the OpenAI path and every deterministic fallback are unchanged.
 The key is read from `ANTHROPIC_API_KEY` (shell env or `.env`), never logged. Startup logs the active provider.
 Live tests are now opt-in (`addopts = -m 'not live'`) so plain `pytest` never spends money.
+16. **PayPal Sandbox currency and live capture (finish pass)** — Sandbox `create_order` in INR returned
+`422 CURRENCY_NOT_SUPPORTED`, and India sandbox accounts could not pay. The demo is USD-only, using US business and
+personal Sandbox accounts. Live end-to-end run (Postgres, Claude Haiku 5.5, PAYPAL_MODE=sandbox): clean goal ->
+APPROVED -> /approve -> /pay -> buyer approved in browser -> /payments/capture. Order `9PG11902P8810833V`,
+**capture ID `4H067940UN781852J`**, USD 46,000.00, COMPLETED; plan PAID; repeat capture idempotent.
