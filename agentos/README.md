@@ -26,31 +26,29 @@ Postgres will be available at `localhost:5432`.
 
 ### 2. Backend Setup
 
-```bash
-cd agentos/backend
+The backend lives in the repository-root `backend/` folder (not under `agentos/`).
+Full instructions are in the root [`README.md`](../README.md).
 
-# Create and activate virtualenv
+```bash
+cd backend
+
+# Create virtualenv and install dependencies (Python 3.11)
 python -m venv .venv
 # Windows:
 .venv\Scripts\activate
 # Mac/Linux:
 source .venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
+# Configure environment (offline mock mode by default)
 cp .env.example .env
-# Edit .env with your PayPal Sandbox credentials
 
-# Seed the database
+# Seed the database and start the API
 python seed.py
-
-# Start the API
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 ```
 
-API available at: http://localhost:8000
+API available at: http://localhost:8000/api/v1
 Interactive docs: http://localhost:8000/docs
 
 ---
@@ -79,8 +77,9 @@ Frontend available at: http://localhost:5173
 ### 4. Run Tests
 
 ```bash
-cd agentos/backend
-pytest tests/ -v
+cd backend
+python -m pytest -q
+python scripts/run_scenarios.py
 ```
 
 ---
@@ -97,7 +96,7 @@ pytest tests/ -v
 2. App name: `PayPilot-Dev`
 3. App type: **Merchant**
 4. Environment: **Sandbox**
-5. Copy **Client ID** and **Client Secret** to `backend/.env`
+5. Copy **Client ID** and **Client Secret** to `backend/.env` (repository root) and set `PAYPAL_MODE=sandbox`
 
 ### Create Sandbox Accounts
 1. Go to **Sandbox > Accounts**
@@ -184,18 +183,9 @@ POST /payments/capture  (called from PaymentReturnPage)
 
 ### Backend (`backend/.env`)
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DATABASE_URL` | ✅ | — | PostgreSQL connection string |
-| `PAYPAL_CLIENT_ID` | ✅ | — | PayPal Sandbox client ID |
-| `PAYPAL_CLIENT_SECRET` | ✅ | — | PayPal Sandbox client secret |
-| `PAYPAL_BASE_URL` | — | `https://api-m.sandbox.paypal.com` | PayPal API base URL |
-| `APP_BASE_URL` | — | `http://localhost:5173` | Frontend URL for PayPal redirects |
-| `LLM_PROVIDER` | — | `stub` | `stub`, `openai`, or `anthropic` |
-| `LLM_MODEL` | — | `stub-v1` | Model name for the LLM provider |
-| `LLM_API_KEY` | — | — | API key (not needed for stub) |
-| `MAX_TXN_MINOR` | — | `1000000` | Max transaction in minor units ($10,000) |
-| `CORS_ORIGINS` | — | `http://localhost:5173` | Space-separated list of allowed origins |
+See [`backend/.env.example`](../backend/.env.example) for the full, commented list. Defaults run fully offline
+(`LLM_MODE=mock`, `PAYPAL_MODE=mock`, `SEARCH_MODE=mock`, SQLite). For live use set `LLM_MODE=live` with
+`ANTHROPIC_API_KEY`, and `PAYPAL_MODE=sandbox` with `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET`.
 
 ### Frontend (`frontend/.env`)
 
