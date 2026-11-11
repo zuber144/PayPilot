@@ -22,8 +22,8 @@ def _providers() -> dict[int, ProviderOut]:
             id=1,
             name="ABC Catering",
             category="catering",
-            base_price_minor=2_800_000,
-            min_price_minor=2_400_000,
+            base_price_minor=2_500_000,
+            min_price_minor=2_500_000,
             concession_rate=0.0375,
             rating=4.6,
             turnaround_days=7,
@@ -34,8 +34,8 @@ def _providers() -> dict[int, ProviderOut]:
             id=2,
             name="Studio X",
             category="photography",
-            base_price_minor=1_800_000,
-            min_price_minor=1_500_000,
+            base_price_minor=1_600_000,
+            min_price_minor=1_600_000,
             concession_rate=0.0385,
             rating=4.7,
             turnaround_days=4,
@@ -47,7 +47,7 @@ def _providers() -> dict[int, ProviderOut]:
             name="QuickBites Co",
             category="catering",
             base_price_minor=2_200_000,
-            min_price_minor=2_000_000,
+            min_price_minor=2_200_000,
             concession_rate=0.03,
             rating=4.1,
             turnaround_days=5,
@@ -234,7 +234,7 @@ def test_no_duplicate_pass_and_fail() -> None:
 def test_price_floor_pass_and_fail() -> None:
     provs = _providers()
     plan = _clean_plan()
-    # Provider 1 min_price_minor is 2,400,000; lower to 2,399,999
+    # Provider 1 listing price is 2,500,000 (1 pack, no shipping); a lower line price is tampered
     below_floor = PlanDraft(
         items=[
             plan.items[0].model_copy(update={"price_minor": 2_399_999}),
@@ -434,8 +434,8 @@ def test_run_for_plan_detects_tampered_total_and_duplicate() -> None:
             id=1,
             name="ABC Catering",
             category="catering",
-            base_price_minor=2_800_000,
-            min_price_minor=2_400_000,
+            base_price_minor=2_500_000,
+            min_price_minor=2_500_000,
             concession_rate=0.0375,
             rating=4.6,
             turnaround_days=7,
@@ -446,8 +446,8 @@ def test_run_for_plan_detects_tampered_total_and_duplicate() -> None:
             id=2,
             name="Studio X",
             category="photography",
-            base_price_minor=1_800_000,
-            min_price_minor=1_500_000,
+            base_price_minor=1_600_000,
+            min_price_minor=1_600_000,
             concession_rate=0.0385,
             rating=4.7,
             turnaround_days=4,

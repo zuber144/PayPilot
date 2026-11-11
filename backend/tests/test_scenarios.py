@@ -4,14 +4,17 @@ from fastapi.testclient import TestClient
 
 from app.enums import ErrorCode, GoalStatus, PlanStatus, RuleId, RuleOutcome, TraceStatus, TxnStatus, Verdict
 
+SHOPPING_TEXT = "Birthday party supplies: 10 party hats and 50 balloons, needed within 5 days"
+BUDGET = 2_000  # USD 20.00 in cents
+
 
 def test_scenario_clean_e2e(client: TestClient) -> None:
     """Scenario 1 (clean): PLAN_READY, verdict APPROVED, approve -> pay -> capture -> PAID & COMPLETED."""
     r = client.post(
         "/api/v1/goals",
         json={
-            "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer",
-            "budget_minor": 5_000_000,
+            "raw_text": SHOPPING_TEXT,
+            "budget_minor": BUDGET,
             "currency": "USD",
             "scenario": "clean",
         },
@@ -27,7 +30,15 @@ def test_scenario_clean_e2e(client: TestClient) -> None:
     plan = client.get(f"/api/v1/plans/{plan_id}").json()
     assert plan["status"] == PlanStatus.CHECKED
     assert plan["payguard"]["verdict"] == Verdict.APPROVED
-    assert plan["total_minor"] <= 5_000_000
+    assert plan["total_minor"] <= BUDGET
+    # Clean cart: cheapest verified listing per item, shipping included (catalog: 346 + 237 cents)
+    assert plan["total_minor"] == 583
+    assert sorted(i["provider_name"] for i in plan["items"]) == [
+        "Balloon Bazaar (Amazon)",
+        "PartyZone Official (Flipkart)",
+    ]
+    for item in plan["items"]:
+        assert item["price_minor"] == item["packs"] * item["pack_price_minor"] + item["shipping_minor"]
 
     app_r = client.post(f"/api/v1/plans/{plan_id}/approve", json={"acknowledged_flags": []})
     assert app_r.status_code == 200
@@ -50,12 +61,13 @@ def test_scenario_clean_e2e(client: TestClient) -> None:
 
 
 def test_scenario_retry_e2e(client: TestClient) -> None:
-    """Scenario 2 (retry): trace has RETRY event, plan produced, LensCraft appears among photography offers."""
+    """Scenario 2 (retry): trace has RETRY event, plan produced, and the party-hat listing that the
+    strict min_rating filter excluded (PartyZone, rating 4.2) appears after relaxation."""
     r = client.post(
         "/api/v1/goals",
         json={
-            "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer",
-            "budget_minor": 5_000_000,
+            "raw_text": SHOPPING_TEXT,
+            "budget_minor": BUDGET,
             "currency": "USD",
             "scenario": "retry",
         },
@@ -69,10 +81,10 @@ def test_scenario_retry_e2e(client: TestClient) -> None:
     assert any(ev["status"] == TraceStatus.RETRY for ev in goal["trace"])
 
     offers_out = client.get(f"/api/v1/goals/{goal_id}/offers").json()
-    photo_groups = [g for g in offers_out["groups"] if g["need_key"] in ("photography", "photographer")]
-    assert len(photo_groups) == 1
-    provider_names = {o["provider_name"] for o in photo_groups[0]["offers"]}
-    assert "LensCraft" in provider_names
+    hat_groups = [g for g in offers_out["groups"] if g["need_key"] == "party_hats"]
+    assert len(hat_groups) == 1
+    provider_names = {o["provider_name"] for o in hat_groups[0]["offers"]}
+    assert "PartyZone Official (Flipkart)" in provider_names
 
 
 def test_scenario_blocked_e2e(client: TestClient) -> None:
@@ -82,8 +94,8 @@ def test_scenario_blocked_e2e(client: TestClient) -> None:
     r = client.post(
         "/api/v1/goals",
         json={
-            "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer",
-            "budget_minor": 3_600_000,
+            "raw_text": SHOPPING_TEXT,
+            "budget_minor": BUDGET,
             "currency": "USD",
             "scenario": "blocked",
         },
@@ -117,8 +129,8 @@ def test_scenario_review_e2e(client: TestClient) -> None:
     r = client.post(
         "/api/v1/goals",
         json={
-            "raw_text": "Catering for 100 people for our office event",
-            "budget_minor": 5_000_000,
+            "raw_text": "Office party: 20 party hats",
+            "budget_minor": BUDGET,
             "currency": "USD",
             "scenario": "review",
         },

@@ -1,4 +1,4 @@
-"""Planning Agent: selects the optimal within-budget combination of offers across needs.
+"""Cart Optimizer (Planning Agent): selects the cheapest within-budget cart, one listing per item.
 
 Pure function: code computes all totals and rankings; LLM writes only the plain-language rationale.
 """
@@ -12,9 +12,9 @@ from app.llm import LLMFailure, call_json
 from app.schemas import Need, OfferDraft, PlanDraft, PlanItem, ProviderOut, RationaleLLMOut
 
 _SYSTEM_PROMPT = (
-    "You are the Planning Agent for PayPal AgentOS. "
-    "Write a concise rationale explaining why the selected providers form the best plan "
-    "for the user's needs based on cost efficiency, ratings, and delivery timeline. "
+    "You are the Cart Optimizer for PayPal AgentOS. "
+    "Write a concise rationale explaining why the selected store listings form the best cart "
+    "for the shopping list based on total cost, seller ratings, and delivery time. "
     "Do not invent or modify any prices or totals."
 )
 
@@ -42,14 +42,44 @@ def _latest_offers_for_need(
     return list(by_provider.values())
 
 
+def _fmt(minor: int) -> str:
+    """Integer minor units -> '1,234.56' (display only; no float arithmetic)."""
+    return f"{minor // 100:,}.{minor % 100:02d}"
+
+
 def _template_rationale(items: list[PlanItem], total_minor: int, budget_minor: int, currency: str) -> str:
-    chosen = ", ".join(f"{item.provider_name} for {item.need_key}" for item in items)
-    total_major = total_minor // 100
-    budget_major = budget_minor // 100
+    chosen = "; ".join(
+        f"{item.need_key}: {item.packs} x {item.product_title or item.provider_name} from "
+        f"{item.provider_name} for {currency} {_fmt(item.price_minor)}"
+        + (f" ({item.original_currency} {_fmt(item.original_price_minor)})" if item.original_price_minor else "")
+        for item in items
+    )
     return (
-        f"Selected {chosen} at {currency} {total_major:,} within the "
-        f"{currency} {budget_major:,} budget, balancing lowest negotiated total, "
-        f"provider ratings, and delivery turnaround."
+        f"Cart: {chosen}. Total {currency} {_fmt(total_minor)} within the "
+        f"{currency} {_fmt(budget_minor)} budget, choosing the lowest total including shipping, "
+        f"then seller rating and delivery time."
+    )
+
+
+def _plan_item(offer: OfferDraft, provider: ProviderOut, currency: str) -> PlanItem:
+    packs = max(1, int(offer.packs))
+    return PlanItem(
+        need_key=offer.need_key,
+        provider_id=offer.provider_id,
+        provider_name=provider.name,
+        price_minor=int(offer.price_minor),
+        timeline_days=int(offer.timeline_days),
+        verified=provider.verified,
+        currency=provider.currency or currency,
+        store=provider.store,
+        product_title=provider.product_title,
+        url=provider.url,
+        quantity=offer.quantity,
+        packs=packs,
+        pack_price_minor=int(provider.base_price_minor),
+        shipping_minor=int(provider.shipping_minor),
+        original_currency=provider.original_currency,
+        original_price_minor=packs * int(provider.original_price_minor) + int(provider.original_shipping_minor),
     )
 
 
@@ -95,18 +125,7 @@ def run(
         return None, False
 
     best_total = best_key[0]
-    items = [
-        PlanItem(
-            need_key=offer.need_key,
-            provider_id=offer.provider_id,
-            provider_name=providers[offer.provider_id].name,
-            price_minor=int(offer.price_minor),
-            timeline_days=int(offer.timeline_days),
-            verified=providers[offer.provider_id].verified,
-            currency=providers[offer.provider_id].currency or currency,
-        )
-        for offer in best_combo
-    ]
+    items = [_plan_item(offer, providers[offer.provider_id], currency) for offer in best_combo]
 
     fallback_used = False
     user_payload = json.dumps(
@@ -116,6 +135,8 @@ def run(
                 {
                     "need_key": item.need_key,
                     "provider_name": item.provider_name,
+                    "store": item.store,
+                    "packs": item.packs,
                     "timeline_days": item.timeline_days,
                     "verified": item.verified,
                 }

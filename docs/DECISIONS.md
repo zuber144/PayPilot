@@ -38,3 +38,56 @@ goal and planned at list price (4,600,000). Fixed in code, not the prompt: `rout
 `[negotiate]` when offers exist and no round has run (`MAX_NEGOTIATION_ROUNDS=0` still yields `[plan]`). The LLM
 chooses freely between negotiate and plan only after round 1. Live clean now 4,425,700 vs 4,600,000 list
 (ABC 2,695,000, Studio X 1,730,700); mock unchanged at 4,096,666. Regression tests in `tests/test_orchestration.py`.
+18. **Pivot: service procurement -> e-commerce product comparison (lead decision, 2026-11-11)** — agents 2-4 now
+search, extract and compare store listings (Amazon/Flipkart) instead of negotiating with seeded vendors. Graph,
+router, PayGuard, payments and the API routes are unchanged in shape.
+   - **Listings reuse the `providers` table.** One row per store listing: new columns `listing_key` (unique;
+     catalog key or URL), `store`, `product_title`, `url`, `pack_size`, `shipping_minor`, `review_count`,
+     `original_currency`/`original_price_minor`/`original_shipping_minor`, `source` (`catalog`|`live`).
+     `base_price_minor = min_price_minor` = one pack in USD cents, `concession_rate = 0`, `turnaround_days` =
+     delivery days. `name` = "Seller (Store)" and is no longer unique. Existing databases must be recreated
+     (delete `agentos.db` / drop the Postgres schema); `create_all` does not add columns.
+   - **Search (`app/search/`).** `SEARCH_MODE=mock` (default, offline) reads the seeded catalog
+     (`app/search/catalog.py`). `SEARCH_MODE=live` scrapes allowlisted store search pages (lead chose direct
+     scraping over a search API). The fetcher is HTTPS-only, re-checks `SEARCH_ALLOWED_HOSTS` on every redirect
+     hop (max `SEARCH_MAX_REDIRECTS`), caps the body at `SEARCH_MAX_BYTES`, times out after
+     `SEARCH_TIMEOUT_SECONDS` and sends a generic User-Agent. Any store/need failure falls back to the catalog
+     and the discovery node writes a `web_search` FALLBACK trace event. The search runs once per goal;
+     discovery retries only re-filter. Known risk: Amazon/Flipkart pages are often JS-rendered or bot-walled
+     and scraping may conflict with their terms of service, so expect live mode to fall back regularly.
+   - **Prices are parsed in code, never by the LLM** (JSON-LD `offers.price`, Amazon `a-price-whole`, rupee
+     regex), using Decimal -> integer paise. The LLM writes only the listing summary and the cart rationale.
+     Scraped titles are truncated and labelled untrusted in the risk prompt.
+   - **Currency: INR display, USD charge.** Goals, plans, budgets and PayPal stay USD
+     (`SUPPORTED_CURRENCIES=["USD"]`). Every pack price and shipping fee is converted once, at ingest, with
+     integer ceil division at the fixed `INR_PAISE_PER_USD=8400` (never undercharges; no live FX call). Line
+     total = packs x pack cents + shipping cents, so TOTAL_INTEGRITY holds. INR line totals
+     (`original_price_minor`) are display-only.
+   - **Quantity.** packs = ceil(quantity / pack_size), where pack_size is parsed from the title ("Pack of 10",
+     "50 pcs") and defaults to 1. A null quantity means one pack.
+   - **Seller verification is derived:** store in `VERIFIED_STORES` AND rating >= `VERIFIED_MIN_RATING` (4.0)
+     AND reviews >= `VERIFIED_MIN_REVIEWS` (50). The orchestrator never relaxes it.
+   - **Negotiation node = price comparison.** `MAX_NEGOTIATION_ROUNDS=1`. The pass re-derives line totals from
+     the listing (prices never change), marks offers ACCEPTED and tags BEST_PRICE / FASTEST_DELIVERY /
+     TOP_RATED per item. The mandatory-first-round rule (#17) still applies. `COUNTER_RATIO` was removed.
+   - **PRICE_FLOOR** keeps its RuleId but now checks listing price integrity: each line must equal
+     packs x stored pack price + stored shipping, with packs >= 1. RuleId order and the 10-rule contract are
+     unchanged. No DELIVERY_DEADLINE rule was added; `deadline_days` is parsed but not yet enforced.
+   - **SINGLE_VENDOR_SHARE** still groups by listing (seller). A single-item cart is therefore REVIEW, which is
+     the review scenario.
+   - **Scenarios** (budget USD 20.00 = 2,000 cents): clean "10 party hats and 50 balloons" -> PartyZone
+     (Flipkart) 346 + Balloon Bazaar (Amazon) 237 = 583 cents, APPROVED + PAID. retry -> strict min_rating 4.5
+     leaves 0 verified hats, so retry 1 relaxes rating. blocked -> cheapest Meesho sellers are unverified,
+     VERIFIED_PROVIDER BLOCK. review -> "20 party hats" goes to a single seller, SINGLE_VENDOR_SHARE REVIEW.
+   - **Price drift (live mode):** listing rows are shared and keyed by URL, so a later goal re-scraping the same
+     URL updates its price. `/pay` re-runs PayGuard from the DB, so an earlier plan whose line no longer matches
+     the listing is BLOCKED by PRICE_FLOOR at payment time. It is never charged at a stale price.
+   - **Section-15 test mapping:** `test_negotiation.py` "price never goes below min_price" became "compared price
+     always equals the listing, and PRICE_FLOOR blocks a line below the listing". The orchestration regression
+     test was renamed `test_router_llm_preferring_plan_still_runs_comparison_round`. All other section-15 files
+     are unchanged in purpose. New: `tests/test_search.py` (FX, parsers, fetch allowlist and limits, fallback).
+   - **Live-mode finding (2026-11-11):** a live goal for "10 party hats and 50 balloons" found 20 listings but
+     0 verified hat listings. Amazon hat listings were below 4.0 stars or 50 reviews, and Flipkart search cards
+     show no ratings, so its listings parse as 0 stars. The goal ended at NEEDS_INPUT after 2 retries, because
+     verification is never relaxed. Possible follow-up: one bounded product-page JSON-LD fetch per Flipkart
+     listing to get its rating.

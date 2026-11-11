@@ -139,6 +139,9 @@ def get_goal_offers(goal_id: int, db: DbSession) -> OffersOut:
                     counter_minor=r.counter_minor,
                     status=OfferStatus(r.status),
                     scope=r.scope or "",
+                    packs=r.packs or 1,
+                    shipping_minor=r.shipping_minor or 0,
+                    tags=list(r.tags or []),
                 )
                 for r in p_offers_sorted
             ]
@@ -153,6 +156,14 @@ def get_goal_offers(goal_id: int, db: DbSession) -> OffersOut:
                     final_price_minor=last_off.price_minor,
                     status=OfferStatus(last_off.status),
                     rounds=rounds,
+                    store=prov.store if prov else "",
+                    product_title=prov.product_title if prov else "",
+                    url=prov.url if prov else "",
+                    pack_size=prov.pack_size if prov else 1,
+                    review_count=prov.review_count if prov else 0,
+                    tags=list(last_off.tags or []),
+                    original_currency=prov.original_currency if prov else "INR",
+                    original_price_minor=prov.original_price_minor if prov else 0,
                 )
             )
         groups.append(OfferGroup(need_key=need_key, offers=provider_offers_list))

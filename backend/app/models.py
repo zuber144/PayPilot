@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
@@ -39,22 +40,38 @@ class Goal(Base):
 
 
 class Provider(Base):
+    """One store listing (product-comparison pivot). Money columns without `original_` are USD
+    cents; `original_*` columns are the native INR paise shown to the user."""
+
     __tablename__ = "providers"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(200), unique=True)
+    listing_key: Mapped[str] = mapped_column(  # catalog key or URL
+        String(300), unique=True, default=lambda: f"manual:{uuid4().hex}"
+    )
+    name: Mapped[str] = mapped_column(String(200))
     category: Mapped[str] = mapped_column(String(50), index=True)
-    base_price_minor: Mapped[int] = mapped_column(Integer)
-    min_price_minor: Mapped[int] = mapped_column(Integer)
-    concession_rate: Mapped[float] = mapped_column(Float)
+    base_price_minor: Mapped[int] = mapped_column(Integer)  # one pack, USD cents
+    min_price_minor: Mapped[int] = mapped_column(Integer)  # == base (fixed store price)
+    concession_rate: Mapped[float] = mapped_column(Float, default=0.0)
     rating: Mapped[float] = mapped_column(Float)
-    turnaround_days: Mapped[int] = mapped_column(Integer)
+    turnaround_days: Mapped[int] = mapped_column(Integer)  # delivery days
     verified: Mapped[bool] = mapped_column(Boolean)
     currency: Mapped[str] = mapped_column(String(3), default="USD")
     persona: Mapped[str] = mapped_column(Text, default="")
+    store: Mapped[str] = mapped_column(String(50), default="")
+    product_title: Mapped[str] = mapped_column(Text, default="")
+    url: Mapped[str] = mapped_column(Text, default="")
+    pack_size: Mapped[int] = mapped_column(Integer, default=1)
+    shipping_minor: Mapped[int] = mapped_column(Integer, default=0)
+    review_count: Mapped[int] = mapped_column(Integer, default=0)
+    original_currency: Mapped[str] = mapped_column(String(3), default="INR")
+    original_price_minor: Mapped[int] = mapped_column(Integer, default=0)
+    original_shipping_minor: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String(20), default="catalog")
 
 
 class Offer(Base):
-    """One row per provider per negotiation round (round 0 = opening offer)."""
+    """One row per listing per round (round 0 = extracted offer, round 1 = price comparison)."""
 
     __tablename__ = "offers"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -67,6 +84,10 @@ class Offer(Base):
     scope: Mapped[str] = mapped_column(Text, default="")
     timeline_days: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(20))
+    quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    packs: Mapped[int] = mapped_column(Integer, default=1)
+    shipping_minor: Mapped[int] = mapped_column(Integer, default=0)
+    tags: Mapped[list[str]] = mapped_column(JSONType, default=list)
 
 
 class Plan(Base):

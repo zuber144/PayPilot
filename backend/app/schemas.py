@@ -1,5 +1,9 @@
 """Pydantic models = the frozen API contract (work-division doc section 2) plus internal
 agent/LLM data shapes. Money is always integer minor units.
+
+Product-comparison pivot (DECISIONS.md #18): a "provider" is one store listing (Amazon/Flipkart
+product). `*_minor` fields are USD cents (the charge currency); `original_*` fields are the
+listing's native INR paise, for display only.
 """
 
 from datetime import datetime
@@ -23,9 +27,9 @@ from app.enums import (
 
 
 class Need(BaseModel):
-    key: str  # unique per goal, e.g. "catering", "photography"
-    category: str  # provider category to search
-    quantity: int | None = None
+    key: str  # unique per goal, e.g. "party_hats", "balloons"
+    category: str  # product category / search term
+    quantity: int | None = None  # units wanted (None = one pack)
     must_haves: list[str] = Field(default_factory=list)
 
 
@@ -97,10 +101,13 @@ class GoalOut(BaseModel):
 
 class OfferRound(BaseModel):
     round: int
-    price_minor: int
+    price_minor: int  # line total: packs * pack price + shipping (USD cents)
     counter_minor: int | None = None
     status: OfferStatus
     scope: str = ""
+    packs: int = 1
+    shipping_minor: int = 0
+    tags: list[str] = Field(default_factory=list)  # BEST_PRICE, FASTEST_DELIVERY, TOP_RATED
 
 
 class ProviderOffers(BaseModel):
@@ -113,6 +120,14 @@ class ProviderOffers(BaseModel):
     final_price_minor: int
     status: OfferStatus  # status of the latest round
     rounds: list[OfferRound]
+    store: str = ""
+    product_title: str = ""
+    url: str = ""
+    pack_size: int = 1
+    review_count: int = 0
+    tags: list[str] = Field(default_factory=list)  # tags of the latest round
+    original_currency: str = "INR"
+    original_price_minor: int = 0  # native pack price (paise), display only
 
 
 class OfferGroup(BaseModel):
@@ -129,10 +144,19 @@ class PlanItem(BaseModel):
     need_key: str
     provider_id: int
     provider_name: str
-    price_minor: int
+    price_minor: int  # line total in USD cents = packs * pack_price_minor + shipping_minor
     timeline_days: int
     verified: bool
     currency: str = "USD"
+    store: str = ""
+    product_title: str = ""
+    url: str = ""
+    quantity: int | None = None
+    packs: int = 1
+    pack_price_minor: int = 0
+    shipping_minor: int = 0
+    original_currency: str = "INR"
+    original_price_minor: int = 0  # native line total (paise), display only
 
 
 class RuleResult(BaseModel):
@@ -193,19 +217,32 @@ class TransactionOut(BaseModel):
 
 
 class ProviderOut(BaseModel):
+    """One store listing. base_price_minor = min_price_minor = one pack in USD cents (fixed price)."""
+
     model_config = ConfigDict(from_attributes=True)
     id: int
-    name: str
+    name: str  # seller display name, e.g. "PartyZone Official (Flipkart)"
     category: str
     base_price_minor: int
     min_price_minor: int
-    concession_rate: float
+    concession_rate: float = 0.0
     rating: float
-    turnaround_days: int
+    turnaround_days: int  # delivery days
     verified: bool
     currency: str = "USD"
     persona: str = ""
     demo: bool = True
+    listing_key: str = ""
+    store: str = ""
+    product_title: str = ""
+    url: str = ""
+    pack_size: int = 1
+    shipping_minor: int = 0
+    review_count: int = 0
+    original_currency: str = "INR"
+    original_price_minor: int = 0  # pack price, paise
+    original_shipping_minor: int = 0  # paise
+    source: str = "catalog"  # "catalog" (seeded/offline) or "live" (scraped)
 
 
 class ErrorBody(BaseModel):
@@ -239,11 +276,16 @@ class OfferDraft(BaseModel):
     need_key: str
     provider_id: int
     round: int
-    price_minor: int
+    price_minor: int  # line total in USD cents, computed in code
     counter_minor: int | None = None
     timeline_days: int
     scope: str = ""
     status: OfferStatus = OfferStatus.OPEN
+    quantity: int | None = None
+    packs: int = 1
+    pack_price_minor: int = 0
+    shipping_minor: int = 0
+    tags: list[str] = Field(default_factory=list)
 
 
 class PlanDraft(BaseModel):

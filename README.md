@@ -2,6 +2,14 @@
 
 Bounded multi-agent purchasing workflow (LangGraph + FastAPI + SQLAlchemy 2 + PayGuard deterministic & AI safety engine + PayPal Orders API v2 Sandbox).
 
+The agents turn a shopping request ("10 party hats and 50 balloons") into a shopping list, search store listings
+(Amazon/Flipkart), extract pack size, price, shipping, rating and delivery, compare deals (BEST_PRICE /
+FASTEST_DELIVERY / TOP_RATED), build the cheapest cart within budget, run PayGuard and check out with PayPal.
+Prices are shown in INR and charged in USD at a fixed demo rate. See `docs/DECISIONS.md` #18.
+
+> Upgrading an existing checkout: the listing columns changed, so delete `backend/agentos.db` (or drop the Postgres
+> schema) and re-run `seed.py`.
+
 ## Run the backend
 
 ### 1. Environment & dependencies
@@ -31,9 +39,11 @@ To use the live LLM and PayPal Sandbox, set these in `backend/.env`:
 - `LLM_MODE=live` with `LLM_PROVIDER=anthropic` (default model `claude-haiku-5-5`; the key comes from `ANTHROPIC_API_KEY` in `.env` or your shell). `LLM_PROVIDER=openai` with `OPENAI_API_KEY` is still supported. The provider in use is logged at startup.
 - `PAYPAL_MODE=sandbox` with `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` from a **US** Sandbox app. The demo is USD-only because PayPal Sandbox rejects INR. Approve payments with a US *personal* Sandbox account.
 
+- `SEARCH_MODE=live` scrapes the allowlisted store search pages (amazon.in, flipkart.com) instead of using the offline catalog. These pages are often JavaScript-rendered or bot-protected, and scraping may conflict with the stores' terms of service. Any failure falls back to the catalog and is recorded as a `web_search` FALLBACK trace event. Prices are always parsed in code, never by the LLM.
+
 Live tests are opt-in and never run with a plain `pytest`: `.venv\Scripts\python -m pytest -m live`. The PayPal one reads `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` from the shell environment.
 
-To drive the 4 scenarios against a running server (for example on Postgres), start uvicorn with `LLM_MODE=mock PAYPAL_MODE=mock` on an empty database, then run `.venv\Scripts\python scriptsun_scenarios.py --base-url http://127.0.0.1:8000`.
+To drive the 4 scenarios against a running server (for example on Postgres), start uvicorn with `LLM_MODE=mock PAYPAL_MODE=mock` on an empty database, then run `.venv\Scripts\python scripts\run_scenarios.py --base-url http://127.0.0.1:8000`.
 
 ### 2. Seed the database & start FastAPI
 

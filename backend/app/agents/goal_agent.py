@@ -1,4 +1,4 @@
-"""Goal Agent: parses free-text user goal into structured needs via LLM JSON schema.
+"""Goal Agent: parses a free-text shopping request into a structured shopping list (needs).
 
 Pure function: no DB writes, no trace writes.
 """
@@ -10,17 +10,18 @@ from app.llm import LLMFailure, call_json
 from app.schemas import GoalLLMOut, Need, ParsedGoal
 
 _SYSTEM_PROMPT = (
-    "You are the Goal Parsing Agent for PayPal AgentOS. "
-    "Extract distinct service needs (each with a unique snake_case key, category such as "
-    "'catering' or 'photography', optional integer quantity, and must_haves list), "
-    "optional deadline_days, and 3-letter currency code. "
-    "If the user request is too vague to identify any concrete service need, "
-    "return an empty needs list and set a concise clarification question."
+    "You are the Goal Parsing Agent for PayPal AgentOS, a shopping assistant that compares store "
+    "listings. Extract each distinct product to buy (unique snake_case key, category = short "
+    "snake_case product search term such as 'party_hats' or 'balloons', integer quantity = number "
+    "of units wanted, and must_haves list of attributes like colour or material), optional "
+    "deadline_days (days until the items are needed), and 3-letter currency code. "
+    "If the request names no concrete product, return an empty needs list and set a concise "
+    "clarification question."
 )
 
 _DEFAULT_CLARIFICATION = (
-    "Could you clarify which services you need (for example, catering or photography) "
-    "and any headcount or timeline requirements?"
+    "Could you list the products you want to buy and how many of each "
+    "(for example, 10 party hats and 50 balloons)?"
 )
 
 
