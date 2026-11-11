@@ -1,0 +1,229 @@
+{
+  "info": {
+    "_postman_id": "paypilot-agentos-v1",
+    "name": "PayPilot AgentOS + PayGuard AI",
+    "description": "Postman API collection for PayPal AgentOS autonomous procurement and PayGuard AI deterministic safety guardrails.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "goalId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "planId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Goals",
+      "item": [
+        {
+          "name": "Create Goal - Clean Approval Scenario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"raw_text\": \"Build a professional website with compelling copy for our SaaS product launch\",\n  \"budget_minor\": 500000,\n  \"currency\": \"USD\",\n  \"user_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals"]
+            }
+          }
+        },
+        {
+          "name": "Create Goal - Review Required Scenario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"raw_text\": \"Create a logo for my startup in 3 days\",\n  \"budget_minor\": 15000,\n  \"currency\": \"USD\",\n  \"user_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals"]
+            }
+          }
+        },
+        {
+          "name": "Create Goal - Policy Blocked Scenario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"raw_text\": \"Write blog posts using the cheapest possible copywriters no matter what\",\n  \"budget_minor\": 10000,\n  \"currency\": \"USD\",\n  \"user_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals"]
+            }
+          }
+        },
+        {
+          "name": "Get Goal by ID (with Trace)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/goals/{{goalId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals", "{{goalId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Goal Negotiation Offers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/goals/{{goalId}}/offers",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals", "{{goalId}}", "offers"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Plans & PayGuard",
+      "item": [
+        {
+          "name": "Get Plan by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/plans/{{planId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["plans", "{{planId}}"]
+            }
+          }
+        },
+        {
+          "name": "Run PayGuard AI Audit",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/plans/{{planId}}/payguard",
+              "host": ["{{baseUrl}}"],
+              "path": ["plans", "{{planId}}", "payguard"]
+            }
+          }
+        },
+        {
+          "name": "Approve Plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"acknowledged_flags\": [\"VENDOR_CONCENTRATION\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/plans/{{planId}}/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["plans", "{{planId}}", "approve"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Payments & PayPal Sandbox",
+      "item": [
+        {
+          "name": "Initiate PayPal Settlement (Pay Plan)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/plans/{{planId}}/pay",
+              "host": ["{{baseUrl}}"],
+              "path": ["plans", "{{planId}}", "pay"]
+            }
+          }
+        },
+        {
+          "name": "Capture PayPal Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"PP-ORDER-ID-OR-TOKEN\",\n  \"plan_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/capture",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "capture"]
+            }
+          }
+        },
+        {
+          "name": "List Settlement Transactions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/payments/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "transactions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Providers",
+      "item": [
+        {
+          "name": "List Marketplace Providers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/providers",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

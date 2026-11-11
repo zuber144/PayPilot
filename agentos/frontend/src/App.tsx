@@ -1,25 +1,35 @@
-// src/App.tsx — router wiring for all 6 routes
+// src/App.tsx — routing with AppShell, KillSwitchProvider, and ToastProvider
 import { Routes, Route } from 'react-router-dom'
-import { Nav } from './components/Nav'
-import { HomePage } from './pages/HomePage'
-import { GoalPage } from './pages/GoalPage'
+import { AppShell } from './components/layout/AppShell'
+import { KillSwitchProvider } from './context/KillSwitchContext'
+import { ToastProvider } from './components/ui/Toast'
+
+// Screen pages
+import { GoalDashboard } from './pages/GoalDashboard'
+import { GoalExecution } from './pages/GoalExecution'
 import { PlanPage } from './pages/PlanPage'
-import { PayPage } from './pages/PayPage'
-import { PaymentReturnPage } from './pages/PaymentReturnPage'
-import { TransactionsPage } from './pages/TransactionsPage'
+import { PaymentPage } from './pages/PaymentPage'
+import { PaymentReturn } from './pages/PaymentReturn'
+import { Transactions } from './pages/Transactions'
+import { NotFound } from './pages/NotFound'
 
 export default function App() {
   return (
-    <>
-      <Nav />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/goals/:id" element={<GoalPage />} />
-        <Route path="/plans/:id" element={<PlanPage />} />
-        <Route path="/plans/:id/pay" element={<PayPage />} />
-        <Route path="/payments/return" element={<PaymentReturnPage />} />
-        <Route path="/transactions" element={<TransactionsPage />} />
-      </Routes>
-    </>
+    <KillSwitchProvider>
+      <ToastProvider>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/" element={<GoalDashboard />} />
+            <Route path="/goals/:id" element={<GoalExecution />} />
+            <Route path="/plans/:id" element={<PlanPage />} />
+            <Route path="/plans/:id/pay" element={<PaymentPage />} />
+            <Route path="/payment/return" element={<PaymentReturn />} />
+            <Route path="/payments/return" element={<PaymentReturn />} />
+            <Route path="/transactions" element={<Transactions />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </ToastProvider>
+    </KillSwitchProvider>
   )
 }
