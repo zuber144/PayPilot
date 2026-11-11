@@ -12,11 +12,12 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.enums import ErrorCode, GoalStatus, OfferStatus, Scenario
 from app.errors import ApiError
-from app.models import Goal, Offer, Plan, Provider
+from app.models import Goal, Offer, Plan, Provider, User
 from app.schemas import (
     GoalCreate,
     GoalCreated,
     GoalOut,
+    OfferFlatOut,
     OfferGroup,
     OfferRound,
     OffersOut,
@@ -42,7 +43,11 @@ def create_goal(
     background_tasks: BackgroundTasks,
     db: DbSession,
 ) -> GoalCreated:
+    user_id: int | None = None
+    if body.user_id is not None and db.get(User, body.user_id) is not None:
+        user_id = body.user_id
     goal = Goal(
+        user_id=user_id,
         raw_text=body.raw_text,
         budget_minor=body.budget_minor,
         currency=body.currency,
@@ -73,6 +78,7 @@ def get_goal(goal_id: int, db: DbSession) -> GoalOut:
 
     return GoalOut(
         id=goal.id,
+        user_id=goal.user_id,
         status=GoalStatus(goal.status),
         raw_text=goal.raw_text,
         budget_minor=goal.budget_minor,
@@ -169,3 +175,28 @@ def get_goal_offers(goal_id: int, db: DbSession) -> OffersOut:
         groups.append(OfferGroup(need_key=need_key, offers=provider_offers_list))
 
     return OffersOut(goal_id=goal_id, groups=groups)
+
+
+@router.get("/goals/{goal_id}/offers/flat", response_model=list[OfferFlatOut])
+def get_goal_offers_flat(goal_id: int, db: DbSession) -> list[OfferFlatOut]:
+    """Legacy (agentos/backend) shape: one row per offer per round, oldest first."""
+    if db.get(Goal, goal_id) is None:
+        raise ApiError(ErrorCode.NOT_FOUND, f"Goal {goal_id} not found")
+    rows = db.scalars(select(Offer).where(Offer.goal_id == goal_id).order_by(Offer.id.asc())).all()
+    return [
+        OfferFlatOut(
+            id=o.id,
+            goal_id=o.goal_id,
+            provider_id=o.provider_id,
+            need_key=o.need_key,
+            round=o.round,
+            price_minor=o.price_minor,
+            scope=o.scope or "",
+            timeline_days=o.timeline_days,
+            status=OfferStatus(o.status),
+            packs=o.packs or 1,
+            shipping_minor=o.shipping_minor or 0,
+            tags=list(o.tags or []),
+        )
+        for o in rows
+    ]

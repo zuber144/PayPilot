@@ -1,4 +1,4 @@
-"""Payments router: POST /payments/capture, GET /transactions."""
+"""Payments router: POST /payments/capture, GET /transactions (+ legacy GET /payments/transactions)."""
 
 from __future__ import annotations
 
@@ -23,10 +23,11 @@ def capture_payment(
     body: CaptureRequest,
     db: DbSession,
 ) -> TransactionOut:
-    return payment_service.capture(db, body.paypal_order_id)
+    return payment_service.capture(db, body.order_id, plan_id=body.plan_id)
 
 
 @router.get("/transactions", response_model=list[TransactionOut])
+@router.get("/payments/transactions", response_model=list[TransactionOut], include_in_schema=False)
 def list_transactions(db: DbSession) -> list[TransactionOut]:
     txns = db.scalars(
         select(Transaction).order_by(Transaction.created_at.desc(), Transaction.id.desc())

@@ -91,3 +91,21 @@ router, PayGuard, payments and the API routes are unchanged in shape.
      show no ratings, so its listings parse as 0 stars. The goal ended at NEEDS_INPUT after 2 retries, because
      verification is never relaxed. Possible follow-up: one bounded product-page JSON-LD fetch per Flipkart
      listing to get its rating.
+19. **Legacy agentos/backend API compatibility (lead decision, 2026-11-11, local branch)** — the original scaffold
+backend (`agentos/backend`, removed in f255200) is merged into the working `backend/` as an *additive* compatibility
+layer only. Its code was an earlier version of the same spec and nothing else was worth porting. The canonical
+contract and all earlier tests are unchanged. What was added:
+   - `GET /payments/transactions`, an alias of `GET /transactions` (hidden from OpenAPI).
+   - `POST /payments/capture` also accepts the legacy body `{token, plan_id}`, where token is the PayPal order id.
+     A `plan_id` that doesn't match the order's plan returns 409 CONFLICT. Sending neither id, or two different
+     ids, returns 422.
+   - `GET /goals/{id}/offers/flat`, which returns the legacy flat offer rows. The legacy client called
+     `/goals/{id}/offers`, which keeps its grouped shape.
+   - New output fields: `GoalOut.user_id` (accepted on create, stored only if the user exists);
+     `TraceEvent.step`/`used_fallback` and `TransactionOut.transaction_id` (derived); `PayResponse.transaction_id`;
+     `PlanItem.scope`/`offer_id`.
+   - `PlanOut.payguard_result`, a read-only legacy view of `payguard`: `{verdict, rules:[{rule, passed, severity,
+     reason}], risk_score 0-100, flags:[ids], summary}`. It is computed on output and never stored.
+   - Left as conflicts (the frontend must adapt): goal status names (PLAN_READY vs PLANNED), plan status names
+     (USER_APPROVED vs APPROVED), the `POST /plans/{id}/payguard` response, the offers path, and trace `status`
+     values. Tests: `tests/test_legacy_compat.py`.

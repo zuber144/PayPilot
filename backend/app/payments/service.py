@@ -10,9 +10,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.enums import ErrorCode, PlanStatus, TxnStatus, Verdict
+from app.enums import ErrorCode, OfferStatus, PlanStatus, TxnStatus, Verdict
 from app.errors import ApiError
-from app.models import Goal, Plan, Transaction
+from app.models import Goal, Offer, Plan, Transaction
 from app.payments import paypal
 from app.payments.paypal import PayPalError
 from app.schemas import PayGuardResult, PayResponse, PlanItem, PlanOut, TransactionOut
@@ -28,6 +28,18 @@ def plan_to_out(db: Session, plan: Plan) -> PlanOut:
     goal = db.get(Goal, plan.goal_id)
     budget_minor = goal.budget_minor if goal is not None else 0
     items = [PlanItem.model_validate(item) for item in (plan.items or [])]
+    if any(i.offer_id is None for i in items):
+        selected = {
+            (o.need_key, o.provider_id): o.id
+            for o in db.scalars(
+                select(Offer)
+                .where(Offer.goal_id == plan.goal_id, Offer.status == OfferStatus.SELECTED.value)
+                .order_by(Offer.id)
+            ).all()
+        }
+        for i in items:
+            if i.offer_id is None:
+                i.offer_id = selected.get((i.need_key, i.provider_id))
     pg = PayGuardResult.model_validate(plan.payguard_result) if plan.payguard_result else None
     return PlanOut(
         id=plan.id,
@@ -180,6 +192,7 @@ def pay(db: Session, plan_id: int) -> PayResponse:
         if existing_txn is not None:
             return PayResponse(
                 plan_id=plan.id,
+                transaction_id=existing_txn.id,
                 paypal_order_id=existing_txn.paypal_order_id,
                 approval_url=existing_txn.approval_url,
                 status=PlanStatus(plan.status),
@@ -257,6 +270,7 @@ def pay(db: Session, plan_id: int) -> PayResponse:
             st = PlanStatus(plan_ref.status) if plan_ref else PlanStatus.PAYING
             return PayResponse(
                 plan_id=plan.id,
+                transaction_id=existing.id,
                 paypal_order_id=existing.paypal_order_id,
                 approval_url=existing.approval_url,
                 status=st,
@@ -266,6 +280,7 @@ def pay(db: Session, plan_id: int) -> PayResponse:
 
     return PayResponse(
         plan_id=plan.id,
+        transaction_id=txn.id,
         paypal_order_id=order_id,
         approval_url=approval_url,
         status=PlanStatus.PAYING,
@@ -316,7 +331,7 @@ def _record_completed_capture(
     return transaction_to_out(db, txn)
 
 
-def capture(db: Session, order_id: str) -> TransactionOut:
+def capture(db: Session, order_id: str, *, plan_id: int | None = None) -> TransactionOut:
     if not settings.PAYMENTS_ENABLED:
         raise ApiError(ErrorCode.PAYMENTS_DISABLED, "Payments are currently disabled")
 
@@ -325,6 +340,8 @@ def capture(db: Session, order_id: str) -> TransactionOut:
     ).first()
     if txn is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"Transaction for order {order_id} not found")
+    if plan_id is not None and txn.plan_id != plan_id:
+        raise ApiError(ErrorCode.CONFLICT, f"Order {order_id} does not belong to plan {plan_id}")
 
     if txn.status == TxnStatus.COMPLETED:
         return transaction_to_out(db, txn)

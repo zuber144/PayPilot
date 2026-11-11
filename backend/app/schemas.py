@@ -9,7 +9,7 @@ listing's native INR paise, for display only.
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from app.enums import (
     GoalStatus,
@@ -50,6 +50,17 @@ class TraceEvent(BaseModel):
     duration_ms: int = 0
     data: dict[str, Any] = Field(default_factory=dict)
 
+    # Legacy (agentos/backend) aliases, derived; see DECISIONS.md #19.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def step(self) -> str:
+        return f"{self.node.value}:{self.action}"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def used_fallback(self) -> bool:
+        return self.status == TraceStatus.FALLBACK
+
 
 # --------------------------------------------------------------------------- requests
 
@@ -59,6 +70,7 @@ class GoalCreate(BaseModel):
     budget_minor: int = Field(gt=0)
     currency: str = Field(default="USD", min_length=3, max_length=3)
     scenario: Scenario | None = None
+    user_id: int | None = None  # legacy clients send this; stored only if the user exists
 
 
 class ApproveRequest(BaseModel):
@@ -73,8 +85,25 @@ class PayRequest(BaseModel):
 
 
 class CaptureRequest(BaseModel):
+    """`paypal_order_id`, or the legacy `{token, plan_id}` body (token = PayPal order id from the
+    return URL). When plan_id is given it must match the order's plan."""
+
     model_config = ConfigDict(extra="ignore")
-    paypal_order_id: str = Field(min_length=1, max_length=64)
+    paypal_order_id: str | None = Field(default=None, min_length=1, max_length=64)
+    token: str | None = Field(default=None, min_length=1, max_length=64)
+    plan_id: int | None = None
+
+    @model_validator(mode="after")
+    def _require_order_id(self) -> "CaptureRequest":
+        if not (self.paypal_order_id or self.token):
+            raise ValueError("paypal_order_id (or legacy token) is required")
+        if self.paypal_order_id and self.token and self.paypal_order_id != self.token:
+            raise ValueError("paypal_order_id and token disagree")
+        return self
+
+    @property
+    def order_id(self) -> str:
+        return self.paypal_order_id or self.token or ""
 
 
 # --------------------------------------------------------------------------- responses
@@ -87,6 +116,7 @@ class GoalCreated(BaseModel):
 
 class GoalOut(BaseModel):
     id: int
+    user_id: int | None = None
     status: GoalStatus
     raw_text: str
     budget_minor: int
@@ -130,6 +160,23 @@ class ProviderOffers(BaseModel):
     original_price_minor: int = 0  # native pack price (paise), display only
 
 
+class OfferFlatOut(BaseModel):
+    """One offer row (legacy agentos/backend flat offers shape)."""
+
+    id: int
+    goal_id: int
+    provider_id: int
+    need_key: str
+    round: int
+    price_minor: int
+    scope: str
+    timeline_days: int
+    status: OfferStatus
+    packs: int = 1
+    shipping_minor: int = 0
+    tags: list[str] = Field(default_factory=list)
+
+
 class OfferGroup(BaseModel):
     need_key: str
     offers: list[ProviderOffers]
@@ -157,6 +204,8 @@ class PlanItem(BaseModel):
     shipping_minor: int = 0
     original_currency: str = "INR"
     original_price_minor: int = 0  # native line total (paise), display only
+    scope: str = ""  # listing summary (legacy field)
+    offer_id: int | None = None  # selected offer row (legacy field)
 
 
 class RuleResult(BaseModel):
@@ -181,6 +230,54 @@ class PayGuardResult(BaseModel):
     checked_at: datetime | None = None
 
 
+class LegacyRuleResult(BaseModel):
+    """agentos/backend rule shape: {rule, passed, severity, reason}."""
+
+    rule: str
+    passed: bool
+    severity: str  # BLOCK | REVIEW
+    reason: str
+
+
+class LegacyPayGuardResult(BaseModel):
+    """agentos/backend PayGuard shape, derived from PayGuardResult (read-only view)."""
+
+    verdict: Verdict
+    rules: list[LegacyRuleResult]
+    risk_score: int | None = None  # 0-100
+    flags: list[str] = Field(default_factory=list)
+    summary: str = ""
+
+    @classmethod
+    def from_result(cls, pg: "PayGuardResult") -> "LegacyPayGuardResult":
+        review_class = {"AI_RISK_MEDIUM", "SINGLE_VENDOR_SHARE"}
+        rules = [
+            LegacyRuleResult(
+                rule=r.id,
+                passed=r.result == RuleOutcome.PASS,
+                severity=(
+                    r.result.value
+                    if r.result != RuleOutcome.PASS
+                    else ("REVIEW" if r.id in review_class else "BLOCK")
+                ),
+                reason=r.detail,
+            )
+            for r in pg.rules
+        ]
+        blocking = sum(1 for r in pg.rules if r.result == RuleOutcome.BLOCK)
+        review = sum(1 for r in pg.rules if r.result == RuleOutcome.REVIEW)
+        return cls(
+            verdict=pg.verdict,
+            rules=rules,
+            risk_score=None if pg.risk_score is None else round(pg.risk_score * 100),
+            flags=[f.id for f in pg.flags],
+            summary=(
+                f"{pg.verdict.value}: {blocking} blocking rule(s), {review} needing review"
+                + ("" if pg.ai_ok else "; AI risk check unavailable")
+            ),
+        )
+
+
 class PlanOut(BaseModel):
     id: int
     goal_id: int
@@ -194,9 +291,16 @@ class PlanOut(BaseModel):
     acknowledged_flags: list[str] = Field(default_factory=list)
     approved_at: datetime | None = None
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def payguard_result(self) -> LegacyPayGuardResult | None:
+        """Legacy (agentos/backend) view of `payguard`; derived, never stored."""
+        return LegacyPayGuardResult.from_result(self.payguard) if self.payguard else None
+
 
 class PayResponse(BaseModel):
     plan_id: int
+    transaction_id: int | None = None
     paypal_order_id: str
     approval_url: str
     status: PlanStatus
@@ -214,6 +318,11 @@ class TransactionOut(BaseModel):
     currency: str
     status: TxnStatus
     created_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def transaction_id(self) -> int:
+        return self.id
 
 
 class ProviderOut(BaseModel):

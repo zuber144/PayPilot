@@ -80,6 +80,7 @@ def _plan_item(offer: OfferDraft, provider: ProviderOut, currency: str) -> PlanI
         shipping_minor=int(provider.shipping_minor),
         original_currency=provider.original_currency,
         original_price_minor=packs * int(provider.original_price_minor) + int(provider.original_shipping_minor),
+        scope=offer.scope,
     )
 
 
