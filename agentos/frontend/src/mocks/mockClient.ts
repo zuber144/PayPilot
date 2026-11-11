@@ -1,11 +1,12 @@
-// src/mocks/mockClient.ts — realistic mock API client with progressive timeline simulation
+// src/mocks/mockClient.ts — realistic mock API client matching backend/app/schemas.py
 
 import type {
   ApproveRequest,
   CaptureResponse,
   CreateGoalRequest,
   Goal,
-  Offer,
+  GoalCreated,
+  OffersOut,
   PayGuardResult,
   PayResponse,
   Plan,
@@ -14,22 +15,21 @@ import type {
 } from '../api/types'
 import {
   SCENARIO_MAP,
-  mockGoalApproved,
+  mockGoalClean,
+  mockGoalRetry,
   mockGoalBlocked,
   mockGoalReview,
-  mockGoalRetry,
-  mockOffers,
-  mockPlanApproved,
+  mockOffersOut,
+  mockPlanClean,
+  mockPlanRetry,
   mockPlanBlocked,
   mockPlanReview,
-  mockPlanRetry,
   mockProviders,
   mockTransactions,
 } from './fixtures'
 
 const delay = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms))
 
-// In-memory state tracking
 interface GoalSimulationState {
   startedAt: number
   scenarioId: number
@@ -38,32 +38,41 @@ interface GoalSimulationState {
 const goalSimulations = new Map<number, GoalSimulationState>()
 let nextGoalId = 5
 
-// In-memory clone of plans and transactions for mutation during demo
 const planStore: Record<number, Plan> = {
-  1: JSON.parse(JSON.stringify(mockPlanApproved)),
-  2: JSON.parse(JSON.stringify(mockPlanReview)),
+  1: JSON.parse(JSON.stringify(mockPlanClean)),
+  2: JSON.parse(JSON.stringify(mockPlanRetry)),
   3: JSON.parse(JSON.stringify(mockPlanBlocked)),
-  4: JSON.parse(JSON.stringify(mockPlanRetry)),
+  4: JSON.parse(JSON.stringify(mockPlanReview)),
 }
 
 const transactionStore: Transaction[] = [...mockTransactions]
 
 export const mockClient = {
-  createGoal: async (data: CreateGoalRequest): Promise<Goal> => {
+  createGoal: async (data: CreateGoalRequest): Promise<GoalCreated> => {
     await delay(350)
     const newId = nextGoalId++
 
-    // Determine scenario based on prompt content or budget
+    // Determine scenario based on scenario key, text content, or budget
     let scenarioId = 1
-    const text = data.raw_text.toLowerCase()
-    if (text.includes('cheapest') || text.includes('unverified') || text.includes('no matter what')) {
-      scenarioId = 3 // Blocked
-    } else if (text.includes('logo') || text.includes('startup') || data.budget_minor <= 20000) {
-      scenarioId = 2 // Review
-    } else if (text.includes('retry') || text.includes('landing page') || text.includes('social media')) {
-      scenarioId = 4 // Retry
+    if (data.scenario === 'blocked') {
+      scenarioId = 3
+    } else if (data.scenario === 'retry') {
+      scenarioId = 2
+    } else if (data.scenario === 'review') {
+      scenarioId = 4
+    } else if (data.scenario === 'clean') {
+      scenarioId = 1
     } else {
-      scenarioId = 1 // Approved
+      const text = data.raw_text.toLowerCase()
+      if (text.includes('cheapest') || text.includes('unverified') || data.budget_minor < 4000000) {
+        scenarioId = 3
+      } else if (text.includes('single') || text.includes('only') || !text.includes('photograph')) {
+        scenarioId = 4
+      } else if (text.includes('retry') || text.includes('strict')) {
+        scenarioId = 2
+      } else {
+        scenarioId = 1
+      }
     }
 
     goalSimulations.set(newId, {
@@ -71,11 +80,8 @@ export const mockClient = {
       scenarioId,
     })
 
-    const baseGoal = SCENARIO_MAP[scenarioId]?.goal ?? mockGoalApproved
-
-    // Create a copy of the plan in store if not present
     if (!planStore[newId]) {
-      const basePlan = SCENARIO_MAP[scenarioId]?.plan ?? mockPlanApproved
+      const basePlan = SCENARIO_MAP[scenarioId]?.plan ?? mockPlanClean
       planStore[newId] = {
         ...JSON.parse(JSON.stringify(basePlan)),
         id: newId,
@@ -85,15 +91,7 @@ export const mockClient = {
 
     return {
       id: newId,
-      user_id: data.user_id,
-      raw_text: data.raw_text,
-      parsed: baseGoal.parsed,
-      budget_minor: data.budget_minor,
-      currency: data.currency,
       status: 'RUNNING',
-      trace: [baseGoal.trace[0]],
-      created_at: new Date().toISOString(),
-      plan_id: null,
     }
   },
 
@@ -101,7 +99,6 @@ export const mockClient = {
     await delay(150)
     const sim = goalSimulations.get(id)
 
-    // For pre-seeded goals (1, 2, 3, 4) without active simulation, return full state
     if (!sim) {
       const scenario = SCENARIO_MAP[id] ?? SCENARIO_MAP[1]
       return scenario.goal
@@ -118,81 +115,78 @@ export const mockClient = {
 
     return {
       id,
-      user_id: scenario.goal.user_id,
+      status: isFinished ? 'PLAN_READY' : 'RUNNING',
       raw_text: scenario.goal.raw_text,
-      parsed: eventsToShow >= 2 ? scenario.goal.parsed : null,
       budget_minor: scenario.goal.budget_minor,
       currency: scenario.goal.currency,
-      status: isFinished ? 'PLAN_READY' : 'RUNNING',
+      scenario: scenario.goal.scenario,
+      parsed: eventsToShow >= 2 ? scenario.goal.parsed : null,
+      question: scenario.goal.question,
       trace: currentTrace,
       created_at: new Date(sim.startedAt).toISOString(),
       plan_id: isFinished ? id : null,
     }
   },
 
-  getGoalOffers: async (goalId: number): Promise<Offer[]> => {
+  getGoalOffers: async (goalId: number): Promise<OffersOut> => {
     await delay(150)
-    const sim = goalSimulations.get(goalId)
-    const effectiveId = sim ? sim.scenarioId : goalId
-    return mockOffers.filter((o) => o.goal_id === effectiveId)
+    return mockOffersOut
   },
 
   getPlan: async (id: number): Promise<Plan> => {
     await delay(150)
-    return planStore[id] ?? mockPlanApproved
+    return planStore[id] ?? mockPlanClean
   },
 
   runPayGuard: async (planId: number): Promise<PayGuardResult> => {
     await delay(400)
-    const plan = planStore[planId] ?? mockPlanApproved
+    const plan = planStore[planId] ?? mockPlanClean
     return (plan.payguard ?? plan.payguard_result)!
   },
 
   approvePlan: async (planId: number, body: ApproveRequest): Promise<Plan> => {
     await delay(300)
-    const plan = planStore[planId] ?? mockPlanApproved
+    const plan = planStore[planId] ?? mockPlanClean
     const updated: Plan = {
       ...plan,
       status: 'USER_APPROVED',
       approved_at: new Date().toISOString(),
+      acknowledged_flags: body.acknowledged_flags,
     }
     planStore[planId] = updated
-    // Also log acknowledged flags for verification
-    if (body.acknowledged_flags.length > 0 && updated.payguard) {
-      updated.payguard = {
-        ...updated.payguard,
-        flags: updated.payguard.flags.filter((f) => !body.acknowledged_flags.includes(f)),
-      }
-    }
     return updated
   },
 
   payPlan: async (planId: number): Promise<PayResponse> => {
     await delay(400)
-    const plan = planStore[planId] ?? mockPlanApproved
+    const plan = planStore[planId] ?? mockPlanClean
     plan.status = 'PAYING'
 
-    const orderId = `PP-MOCK-ORDER-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
-    const mockApprovalUrl = `/payment/return?token=${orderId}&PayerID=MOCK-PAYER-DEMO&plan_id=${planId}`
+    const orderId = `MOCK-plan-${planId}`
+    const mockApprovalUrl = `/payments/return?token=${orderId}&PayerID=MOCK-PAYER-DEMO&plan_id=${planId}`
 
     return {
-      transaction_id: transactionStore.length + 1,
+      plan_id: planId,
       paypal_order_id: orderId,
       approval_url: mockApprovalUrl,
-      status: 'CREATED',
+      status: 'PAYING',
+      reused: false,
     }
   },
 
-  capturePayment: async (token: string, planId: number): Promise<CaptureResponse> => {
+  capturePayment: async (paypalOrderId: string, planId?: number): Promise<CaptureResponse> => {
     await delay(500)
-    const plan = planStore[planId] ?? mockPlanApproved
+    const effectivePlanId = planId ?? 1
+    const plan = planStore[effectivePlanId] ?? mockPlanClean
     plan.status = 'PAID'
 
-    const captureId = `CAP-${Math.random().toString(36).substring(2, 12).toUpperCase()}`
+    const captureId = `MOCK-CAP-${paypalOrderId}`
     const newTx: Transaction = {
       id: transactionStore.length + 1,
-      plan_id: planId,
-      paypal_order_id: token,
+      plan_id: effectivePlanId,
+      goal_id: plan.goal_id,
+      goal_summary: 'Corporate event in Bangalore',
+      paypal_order_id: paypalOrderId,
       capture_id: captureId,
       amount_minor: plan.total_minor,
       currency: plan.currency,
@@ -202,8 +196,10 @@ export const mockClient = {
     transactionStore.unshift(newTx)
 
     return {
+      id: newTx.id,
       transaction_id: newTx.id,
       capture_id: captureId,
+      paypal_order_id: paypalOrderId,
       amount_minor: newTx.amount_minor,
       currency: newTx.currency,
       status: 'COMPLETED',

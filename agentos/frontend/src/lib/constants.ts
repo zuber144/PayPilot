@@ -1,6 +1,6 @@
-// src/lib/constants.ts — status → color/label mappings and route paths
+// src/lib/constants.ts — status → color/label mappings and route paths matching backend/app/enums.py
 
-import type { GoalStatus, PlanStatus, Verdict, TraceStatus, RuleResult } from '../api/types'
+import type { GoalStatus, PlanStatus, Verdict, TraceStatus, RuleResult, Scenario } from '../api/types'
 
 // ─── Route paths ──────────────────────────────────────────────────────────────
 export const ROUTES = {
@@ -8,7 +8,7 @@ export const ROUTES = {
   goal: (id: number | string) => `/goals/${id}`,
   plan: (id: number | string) => `/plans/${id}`,
   pay: (id: number | string) => `/plans/${id}/pay`,
-  payReturn: '/payment/return',
+  payReturn: '/payments/return',
   transactions: '/transactions',
 } as const
 
@@ -86,9 +86,10 @@ export const RULE_RESULT_ICON: Record<RuleResult, string> = {
   BLOCK: '✗',
 }
 
-// ─── Scenario chips ──────────────────────────────────────────────────────────
+// ─── Scenario chips (Matching backend/app/enums.py Scenario values) ────────────
 export interface ScenarioChip {
   id: string
+  scenario: Scenario
   label: string
   description: string
   goalText: string
@@ -99,39 +100,43 @@ export interface ScenarioChip {
 
 export const DEMO_SCENARIOS: ScenarioChip[] = [
   {
-    id: 'approved',
+    id: 'clean',
+    scenario: 'clean',
     label: '✅ Clean Approval',
-    description: 'All 10 PayGuard rules pass, risk score low',
-    goalText: 'Build a professional website with compelling copy for our SaaS product launch',
-    budgetMinor: 500000,  // $5,000
+    description: 'All 10 PayGuard rules pass; verified providers within budget ($40,966.66)',
+    goalText: 'Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days',
+    budgetMinor: 5000000, // $50,000
     currency: 'USD',
     badge: 'APPROVED',
   },
   {
-    id: 'review',
-    label: '⚠️ Review Required',
-    description: 'Single-vendor concentration flag needs acknowledgement',
-    goalText: 'Create a logo for my startup in 3 days',
-    budgetMinor: 15000,  // $150
+    id: 'retry',
+    scenario: 'retry',
+    label: '🔄 Retry Scenario',
+    description: 'Strict filters trigger RETRY trace event; preference filters relaxed; plan succeeds',
+    goalText: 'Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days',
+    budgetMinor: 5000000, // $50,000
     currency: 'USD',
-    badge: 'REVIEW',
+    badge: 'RETRY',
   },
   {
     id: 'blocked',
-    label: '🚫 Policy Block',
-    description: 'Unverified provider triggers BLOCKED verdict',
-    goalText: 'Write blog posts using the cheapest possible copywriters no matter what',
-    budgetMinor: 10000,  // $100
+    scenario: 'blocked',
+    label: '🚫 Blocked Scenario',
+    description: 'Low budget forces unverified provider (QuickBites Co); PayGuard blocks settlement',
+    goalText: 'Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days',
+    budgetMinor: 3600000, // $36,000
     currency: 'USD',
     badge: 'BLOCKED',
   },
   {
-    id: 'retry',
-    label: '🔄 Retry & Fallback',
-    description: 'Discovery retries once, provider agent uses fallback',
-    goalText: 'Build a landing page and social media graphics for a product launch campaign',
-    budgetMinor: 200000,  // $2,000
+    id: 'review',
+    scenario: 'review',
+    label: '⚠️ Review Required',
+    description: 'Single provider holds 100% (> 70%); requires mandatory human flag acknowledgment',
+    goalText: 'Catering for 100 people for our office event in 10 days',
+    budgetMinor: 5000000, // $50,000
     currency: 'USD',
-    badge: 'RETRY',
+    badge: 'REVIEW',
   },
 ]

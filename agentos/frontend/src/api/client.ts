@@ -1,12 +1,11 @@
-// src/api/client.ts — typed API client
-// Swapped for mocks when VITE_USE_MOCKS=true
-
+// src/api/client.ts — typed API client matching backend/app/routers
 import type {
   ApproveRequest,
   CaptureResponse,
   CreateGoalRequest,
   Goal,
-  Offer,
+  GoalCreated,
+  OffersOut,
   PayGuardResult,
   PayResponse,
   Plan,
@@ -31,34 +30,50 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const realClient = {
-  createGoal: (data: CreateGoalRequest) =>
-    request<Goal>('/goals', { method: 'POST', body: JSON.stringify(data) }),
+  createGoal: async (data: CreateGoalRequest): Promise<GoalCreated> => {
+    // Backend expects raw_text, budget_minor, currency, and optional scenario
+    const payload: Record<string, unknown> = {
+      raw_text: data.raw_text,
+      budget_minor: data.budget_minor,
+      currency: data.currency ?? 'USD',
+    }
+    if (data.scenario) {
+      payload.scenario = data.scenario
+    }
+    return request<GoalCreated>('/goals', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
 
-  getGoal: (id: number) => request<Goal>(`/goals/${id}`),
+  getGoal: (id: number): Promise<Goal> => request<Goal>(`/goals/${id}`),
 
-  getGoalOffers: (id: number) => request<Offer[]>(`/goals/${id}/offers`),
+  getGoalOffers: (id: number): Promise<OffersOut> => request<OffersOut>(`/goals/${id}/offers`),
 
-  getPlan: (id: number) => request<Plan>(`/plans/${id}`),
+  getPlan: (id: number): Promise<Plan> => request<Plan>(`/plans/${id}`),
 
-  runPayGuard: (planId: number) =>
+  runPayGuard: (planId: number): Promise<PayGuardResult> =>
     request<PayGuardResult>(`/plans/${planId}/payguard`, { method: 'POST' }),
 
-  approvePlan: (planId: number, body: ApproveRequest) =>
+  approvePlan: (planId: number, body: ApproveRequest): Promise<Plan> =>
     request<Plan>(`/plans/${planId}/approve`, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ acknowledged_flags: body.acknowledged_flags }),
     }),
 
-  payPlan: (planId: number) =>
-    request<PayResponse>(`/plans/${planId}/pay`, { method: 'POST' }),
+  payPlan: (planId: number): Promise<PayResponse> =>
+    request<PayResponse>(`/plans/${planId}/pay`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
 
-  capturePayment: (token: string, planId: number) =>
+  capturePayment: (paypalOrderId: string, _planId?: number): Promise<CaptureResponse> =>
     request<CaptureResponse>('/payments/capture', {
       method: 'POST',
-      body: JSON.stringify({ token, plan_id: planId }),
+      body: JSON.stringify({ paypal_order_id: paypalOrderId }),
     }),
 
-  listTransactions: () => request<Transaction[]>('/payments/transactions'),
+  listTransactions: (): Promise<Transaction[]> => request<Transaction[]>('/transactions'),
 
-  listProviders: () => request<Provider[]>('/providers'),
+  listProviders: (): Promise<Provider[]> => request<Provider[]>('/providers'),
 }

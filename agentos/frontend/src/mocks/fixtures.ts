@@ -1,249 +1,468 @@
 // src/mocks/fixtures.ts — rich fixture data for all 4 demo scenarios
-// Switch on with VITE_USE_MOCKS=true
+// Matching backend/seed.py and backend/app/schemas.py
 
 import type {
-  Goal, Offer, Plan, Provider, Transaction, TraceEvent, PayGuardRuleResult
+  Goal,
+  OffersOut,
+  Plan,
+  Provider,
+  Transaction,
+  TraceEvent,
+  PayGuardRuleResult,
+  Flag,
 } from '../api/types'
 
-// ─── Providers ────────────────────────────────────────────────────────────────
+// ─── 6 Seeded Providers (from backend/seed.py) ────────────────────────────────
 export const mockProviders: Provider[] = [
-  { id: 1, name: 'PixelCraft Studio',   category: 'web_design',    base_price_minor: 300000, min_price_minor: 180000, concession_rate: 0.15, rating: 4.8, turnaround_days: 10, verified: true,  persona: 'Professional web design agency.' },
-  { id: 2, name: 'DevForge Labs',       category: 'web_design',    base_price_minor: 250000, min_price_minor: 170000, concession_rate: 0.10, rating: 4.5, turnaround_days: 14, verified: true,  persona: 'Full-stack dev shop.' },
-  { id: 3, name: 'WordSmith Pro',       category: 'copywriting',   base_price_minor: 80000,  min_price_minor: 50000,  concession_rate: 0.12, rating: 4.6, turnaround_days: 5,  verified: true,  persona: 'Award-winning copywriters.' },
-  { id: 4, name: 'ContentHive',         category: 'copywriting',   base_price_minor: 50000,  min_price_minor: 30000,  concession_rate: 0.20, rating: 3.9, turnaround_days: 4,  verified: false, persona: 'Budget content farm.' },
-  { id: 5, name: 'BrandMaster',         category: 'logo_design',   base_price_minor: 60000,  min_price_minor: 40000,  concession_rate: 0.10, rating: 4.7, turnaround_days: 7,  verified: true,  persona: 'Premium brand identity studio.' },
-  { id: 6, name: 'LogoRocket',          category: 'logo_design',   base_price_minor: 25000,  min_price_minor: 15000,  concession_rate: 0.15, rating: 4.2, turnaround_days: 3,  verified: true,  persona: 'Fast-turnaround logo shop.' },
-  { id: 7, name: 'SocialPulse Agency',  category: 'social_media',  base_price_minor: 120000, min_price_minor: 80000,  concession_rate: 0.08, rating: 4.4, turnaround_days: 6,  verified: true,  persona: 'Social media growth specialists.' },
-  { id: 8, name: 'ViralVault',          category: 'social_media',  base_price_minor: 90000,  min_price_minor: 60000,  concession_rate: 0.12, rating: 4.1, turnaround_days: 5,  verified: true,  persona: 'Viral content creators.' },
+  {
+    id: 1,
+    name: 'ABC Catering',
+    category: 'catering',
+    base_price_minor: 2800000,
+    min_price_minor: 2400000,
+    concession_rate: 0.0375,
+    rating: 4.6,
+    turnaround_days: 7,
+    verified: true,
+    currency: 'USD',
+    persona: 'Trusted corporate and event caterer with full-service buffet setups.',
+    demo: true,
+  },
+  {
+    id: 2,
+    name: 'Spice Route Caterers',
+    category: 'catering',
+    base_price_minor: 3200000,
+    min_price_minor: 2700000,
+    concession_rate: 0.04,
+    rating: 4.4,
+    turnaround_days: 6,
+    verified: true,
+    currency: 'USD',
+    persona: 'Premium regional Indian cuisine specialist with live stations.',
+    demo: true,
+  },
+  {
+    id: 3,
+    name: 'QuickBites Co',
+    category: 'catering',
+    base_price_minor: 2200000,
+    min_price_minor: 2000000,
+    concession_rate: 0.04,
+    rating: 4.1,
+    turnaround_days: 5,
+    verified: false,
+    currency: 'USD',
+    persona: 'Low-cost express event caterer for casual parties.',
+    demo: true,
+  },
+  {
+    id: 4,
+    name: 'Studio X',
+    category: 'photography',
+    base_price_minor: 1800000,
+    min_price_minor: 1500000,
+    concession_rate: 0.0385,
+    rating: 4.7,
+    turnaround_days: 4,
+    verified: true,
+    currency: 'USD',
+    persona: 'Award-winning event photography studio with rapid 4-day delivery.',
+    demo: true,
+  },
+  {
+    id: 5,
+    name: 'LensCraft',
+    category: 'photography',
+    base_price_minor: 2100000,
+    min_price_minor: 1750000,
+    concession_rate: 0.04,
+    rating: 4.2,
+    turnaround_days: 9,
+    verified: true,
+    currency: 'USD',
+    persona: 'Candid and documentary event photographers with full gallery delivery.',
+    demo: true,
+  },
+  {
+    id: 6,
+    name: 'PixelNest',
+    category: 'photography',
+    base_price_minor: 1400000,
+    min_price_minor: 1200000,
+    concession_rate: 0.05,
+    rating: 4.5,
+    turnaround_days: 3,
+    verified: false,
+    currency: 'USD',
+    persona: 'Freelance rapid-turnaround photo crew for compact events.',
+    demo: true,
+  },
 ]
 
-// ─── Scenario: Clean Approval (goal 1) ────────────────────────────────────────
-const traceApproved: TraceEvent[] = [
-  { step: 'orchestrator', node: 'orchestrator', summary: 'Pipeline started for goal #1',               duration_ms: 5,  status: 'OK',       used_fallback: false },
-  { step: 'goal_analyzer', node: 'goal',        summary: 'Identified 2 needs: web_design, copywriting', duration_ms: 42, status: 'OK',       used_fallback: false },
-  { step: 'discovery',     node: 'discovery',   summary: 'Found 4 providers across 2 needs',           duration_ms: 18, status: 'OK',       used_fallback: false },
-  { step: 'provider_agents', node: 'provider',  summary: 'PixelCraft → $2,500 | WordSmith → $680',      duration_ms: 65, status: 'OK',       used_fallback: false },
-  { step: 'negotiation',   node: 'negotiation', summary: 'Round 2: saved $320 total',                  duration_ms: 28, status: 'OK',       used_fallback: false },
-  { step: 'plan_generator', node: 'planning',   summary: 'Plan: 2 items, total $3,180, score=0.84',    duration_ms: 24, status: 'OK',       used_fallback: false },
-  { step: 'payguard',      node: 'payguard',    summary: 'All 10 rules PASS — APPROVED',               duration_ms: 11, status: 'OK',       used_fallback: false },
-  { step: 'orchestrator',  node: 'orchestrator', summary: 'Pipeline complete — plan ready',            duration_ms: 3,  status: 'OK',       used_fallback: false },
+// ─── Scenario 1: Clean Approval (Goal 1) ──────────────────────────────────────
+const traceClean: TraceEvent[] = [
+  { seq: 1, ts: '2026-11-10T12:00:00Z', node: 'goal', action: 'parse_goal', summary: 'Parsed 2 need(s): catering, photography', duration_ms: 2, status: 'OK' },
+  { seq: 2, ts: '2026-11-10T12:00:01Z', node: 'discovery', action: 'discover', summary: 'Discovered 4 candidate(s) for 2 need(s)', duration_ms: 3, status: 'OK' },
+  { seq: 3, ts: '2026-11-10T12:00:02Z', node: 'provider', action: 'initial_offers', summary: 'Obtained initial quotes from 4 providers', duration_ms: 4, status: 'OK' },
+  { seq: 4, ts: '2026-11-10T12:00:03Z', node: 'negotiation', action: 'negotiate', summary: 'Negotiation round 1 complete: 4 counter-offer(s)', duration_ms: 5, status: 'OK' },
+  { seq: 5, ts: '2026-11-10T12:00:04Z', node: 'negotiation', action: 'negotiate', summary: 'Negotiation round 2 complete: saved $3,033.34 total', duration_ms: 4, status: 'OK' },
+  { seq: 6, ts: '2026-11-10T12:00:05Z', node: 'planning', action: 'generate_plan', summary: 'Optimal plan synthesized: 2 item(s), total $40,966.66', duration_ms: 3, status: 'OK' },
+  { seq: 7, ts: '2026-11-10T12:00:06Z', node: 'payguard', action: 'evaluate', summary: 'PayGuard evaluated: all 10 rules PASS — APPROVED', duration_ms: 2, status: 'OK' },
 ]
 
-const rulesApproved: PayGuardRuleResult[] = [
-  { id: 'BUDGET_CAP',          result: 'PASS', detail: 'Plan total $3,180 ≤ goal budget $5,000' },
-  { id: 'TXN_LIMIT',           result: 'PASS', detail: 'Plan total $3,180 ≤ max limit $10,000' },
-  { id: 'VERIFIED_PROVIDER',   result: 'PASS', detail: 'All 2 providers are verified ✓' },
-  { id: 'CURRENCY_MATCH',      result: 'PASS', detail: "Currency 'USD' is valid ISO-4217" },
-  { id: 'NO_DUPLICATE',        result: 'PASS', detail: 'No live transaction exists for this plan' },
-  { id: 'PRICE_FLOOR',         result: 'PASS', detail: 'All item prices ≥ provider minimum floors' },
-  { id: 'TOTAL_INTEGRITY',     result: 'PASS', detail: 'Sum of items (318000) matches plan total (318000)' },
-  { id: 'GOAL_ALIGNMENT',      result: 'PASS', detail: 'All items map to declared goal needs' },
-  { id: 'ML_RISK',             result: 'PASS', detail: 'Risk score 0.18 < 0.40 threshold — low risk' },
-  { id: 'SINGLE_VENDOR_SHARE', result: 'PASS', detail: 'Max vendor share 79% — below 95% block threshold' },
+const rulesClean: PayGuardRuleResult[] = [
+  { id: 'BUDGET_CAP', result: 'PASS', detail: 'Plan total $40,966.66 <= goal budget $50,000.00' },
+  { id: 'TXN_LIMIT', result: 'PASS', detail: 'Plan total $40,966.66 <= max limit $100,000.00' },
+  { id: 'VERIFIED_PROVIDER', result: 'PASS', detail: 'All selected providers (ABC Catering, Studio X) are verified' },
+  { id: 'CURRENCY_MATCH', result: 'PASS', detail: "Currency 'USD' matches goal currency 'USD'" },
+  { id: 'NO_DUPLICATE', result: 'PASS', detail: 'No existing active transaction exists for this plan' },
+  { id: 'PRICE_FLOOR', result: 'PASS', detail: 'All item prices >= provider minimum price floors' },
+  { id: 'TOTAL_INTEGRITY', result: 'PASS', detail: 'Item sum (4,096,666 cents) exactly matches plan total (4,096,666 cents)' },
+  { id: 'AI_RISK_HIGH', result: 'PASS', detail: 'AI risk score 0.10 < 0.70 high threshold' },
+  { id: 'AI_RISK_MEDIUM', result: 'PASS', detail: 'AI risk score 0.10 < 0.40 medium threshold' },
+  { id: 'SINGLE_VENDOR_SHARE', result: 'PASS', detail: 'Max single vendor share is 60.9% <= 70.0% threshold' },
 ]
 
-export const mockGoalApproved: Goal = {
-  id: 1, user_id: 1,
-  raw_text: 'Build a professional website with compelling copy for our SaaS product launch',
-  parsed: { needs: ['web_design', 'copywriting'], budget_minor: 500000, currency: 'USD', deadline_days: 21 },
-  budget_minor: 500000, currency: 'USD', status: 'PLAN_READY',
-  trace: traceApproved, created_at: '2026-11-10T08:00:00Z', plan_id: 1,
+export const mockGoalClean: Goal = {
+  id: 1,
+  status: 'PLAN_READY',
+  raw_text: 'Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days',
+  budget_minor: 5000000,
+  currency: 'USD',
+  scenario: 'clean',
+  parsed: {
+    needs: [
+      { key: 'catering', category: 'catering', quantity: 100, must_haves: [] },
+      { key: 'photography', category: 'photography', quantity: 1, must_haves: [] },
+    ],
+    deadline_days: 10,
+    currency: 'USD',
+  },
+  question: null,
+  trace: traceClean,
+  plan_id: 1,
+  created_at: '2026-11-10T12:00:00Z',
 }
 
-export const mockPlanApproved: Plan = {
-  id: 1, goal_id: 1,
+export const mockPlanClean: Plan = {
+  id: 1,
+  goal_id: 1,
+  status: 'CHECKED',
+  currency: 'USD',
+  total_minor: 4096666,
+  budget_minor: 5000000,
+  rationale: 'Selected the lowest-total combination of verified providers within budget: ABC Catering ($24,966.66) and Studio X ($16,000.00). Both meet the 10-day timeline requirement.',
   items: [
-    { need_key: 'web_design',  provider_id: 1, provider_name: 'PixelCraft Studio', price_minor: 230000, scope: 'Full responsive website (5 pages)', timeline_days: 10, offer_id: 1 },
-    { need_key: 'copywriting', provider_id: 3, provider_name: 'WordSmith Pro',      price_minor: 88000,  scope: 'Homepage + 4 feature page copy',   timeline_days: 5,  offer_id: 2 },
+    { need_key: 'catering', provider_id: 1, provider_name: 'ABC Catering', price_minor: 2496666, timeline_days: 7, verified: true, currency: 'USD' },
+    { need_key: 'photography', provider_id: 4, provider_name: 'Studio X', price_minor: 1600000, timeline_days: 4, verified: true, currency: 'USD' },
   ],
-  total_minor: 318000, currency: 'USD',
-  rationale: 'PixelCraft Studio and WordSmith Pro provide the best quality-to-price ratio within your budget. Combined timeline of 10 days meets your deadline. Both providers are verified with ratings above 4.5.',
-  payguard: { verdict: 'APPROVED', risk_score: 0.18, ai_ok: true, flags: [], rules: rulesApproved },
-  status: 'CHECKED', approved_at: null,
+  payguard: {
+    verdict: 'APPROVED',
+    risk_score: 0.10,
+    ai_ok: true,
+    flags: [],
+    rules: rulesClean,
+  },
+  acknowledged_flags: [],
+  approved_at: null,
 }
 
-// ─── Scenario: Review Required (goal 2) ───────────────────────────────────────
-const traceReview: TraceEvent[] = [
-  { step: 'orchestrator', node: 'orchestrator', summary: 'Pipeline started for goal #2',    duration_ms: 4,  status: 'OK', used_fallback: false },
-  { step: 'goal_analyzer', node: 'goal',        summary: 'Identified 1 need: logo_design',  duration_ms: 38, status: 'OK', used_fallback: false },
-  { step: 'discovery',    node: 'discovery',    summary: 'Found 2 providers: LogoRocket, BrandMaster', duration_ms: 15, status: 'OK', used_fallback: false },
-  { step: 'provider_agents', node: 'provider',  summary: 'LogoRocket → $200; BrandMaster out-of-budget', duration_ms: 55, status: 'OK', used_fallback: false },
-  { step: 'negotiation',  node: 'negotiation',  summary: 'Round 1 accepted: $170 final',    duration_ms: 20, status: 'OK', used_fallback: false },
-  { step: 'plan_generator', node: 'planning',   summary: 'Plan: 1 item, total $170',         duration_ms: 18, status: 'OK', used_fallback: false },
-  { step: 'payguard',     node: 'payguard',     summary: 'SINGLE_VENDOR_SHARE → REVIEW',     duration_ms: 9,  status: 'OK', used_fallback: false },
-  { step: 'orchestrator', node: 'orchestrator', summary: 'Plan ready — human review needed', duration_ms: 2,  status: 'OK', used_fallback: false },
-]
-
-const rulesReview: PayGuardRuleResult[] = [
-  { id: 'BUDGET_CAP',          result: 'PASS',   detail: 'Plan total $170 ≤ goal budget $150 ← note: within 115%' },
-  { id: 'TXN_LIMIT',           result: 'PASS',   detail: 'Plan total $170 ≤ max limit $10,000' },
-  { id: 'VERIFIED_PROVIDER',   result: 'PASS',   detail: 'LogoRocket is verified ✓' },
-  { id: 'CURRENCY_MATCH',      result: 'PASS',   detail: "Currency 'USD' is valid ISO-4217" },
-  { id: 'NO_DUPLICATE',        result: 'PASS',   detail: 'No live transaction exists for this plan' },
-  { id: 'PRICE_FLOOR',         result: 'PASS',   detail: 'Price $170 ≥ floor $150' },
-  { id: 'TOTAL_INTEGRITY',     result: 'PASS',   detail: 'Sum of items (17000) matches plan total (17000)' },
-  { id: 'GOAL_ALIGNMENT',      result: 'PASS',   detail: 'Item maps to declared need: logo_design' },
-  { id: 'ML_RISK',             result: 'REVIEW', detail: 'Risk score 0.42 ≥ 0.40 threshold — medium risk flag' },
-  { id: 'SINGLE_VENDOR_SHARE', result: 'REVIEW', detail: 'Single vendor holds 100% — vendor concentration risk' },
-]
-
-export const mockGoalReview: Goal = {
-  id: 2, user_id: 1,
-  raw_text: 'Create a logo for my startup in 3 days',
-  parsed: { needs: ['logo_design'], budget_minor: 15000, currency: 'USD', deadline_days: 3 },
-  budget_minor: 15000, currency: 'USD', status: 'PLAN_READY',
-  trace: traceReview, created_at: '2026-11-10T09:00:00Z', plan_id: 2,
-}
-
-export const mockPlanReview: Plan = {
-  id: 2, goal_id: 2,
-  items: [
-    { need_key: 'logo_design', provider_id: 6, provider_name: 'LogoRocket', price_minor: 17000, scope: '3 logo concepts + revisions', timeline_days: 3, offer_id: 3 },
-  ],
-  total_minor: 17000, currency: 'USD',
-  rationale: 'Only LogoRocket fits the budget and 3-day deadline. BrandMaster quoted $400, well above budget.',
-  payguard: { verdict: 'REVIEW', risk_score: 0.42, ai_ok: true, flags: ['VENDOR_CONCENTRATION', 'ML_RISK_MEDIUM'], rules: rulesReview },
-  status: 'CHECKED', approved_at: null,
-}
-
-// ─── Scenario: Blocked (goal 3) ───────────────────────────────────────────────
-const traceBlocked: TraceEvent[] = [
-  { step: 'orchestrator',   node: 'orchestrator', summary: 'Pipeline started for goal #3',    duration_ms: 4,  status: 'OK', used_fallback: false },
-  { step: 'goal_analyzer',  node: 'goal',         summary: 'Identified 1 need: copywriting',  duration_ms: 35, status: 'OK', used_fallback: false },
-  { step: 'discovery',      node: 'discovery',    summary: 'Found 2 providers; cheapest selected', duration_ms: 14, status: 'OK', used_fallback: false },
-  { step: 'provider_agents', node: 'provider',    summary: 'ContentHive → $110 (unverified)',  duration_ms: 48, status: 'OK', used_fallback: false },
-  { step: 'negotiation',    node: 'negotiation',  summary: 'Round 1: $100 accepted',           duration_ms: 18, status: 'OK', used_fallback: false },
-  { step: 'plan_generator', node: 'planning',     summary: 'Plan: 1 item, total $100',          duration_ms: 15, status: 'OK', used_fallback: false },
-  { step: 'payguard',       node: 'payguard',     summary: 'VERIFIED_PROVIDER → BLOCKED ✗',    duration_ms: 7,  status: 'OK', used_fallback: false },
-  { step: 'orchestrator',   node: 'orchestrator', summary: 'Pipeline complete — plan BLOCKED', duration_ms: 2,  status: 'OK', used_fallback: false },
-]
-
-const rulesBlocked: PayGuardRuleResult[] = [
-  { id: 'BUDGET_CAP',          result: 'PASS',  detail: 'Plan total $100 ≤ goal budget $100' },
-  { id: 'TXN_LIMIT',           result: 'PASS',  detail: 'Plan total $100 ≤ max limit $10,000' },
-  { id: 'VERIFIED_PROVIDER',   result: 'BLOCK', detail: 'ContentHive is NOT verified — cannot pay unverified providers' },
-  { id: 'CURRENCY_MATCH',      result: 'PASS',  detail: "Currency 'USD' is valid ISO-4217" },
-  { id: 'NO_DUPLICATE',        result: 'PASS',  detail: 'No live transaction exists for this plan' },
-  { id: 'PRICE_FLOOR',         result: 'PASS',  detail: 'Price $100 ≥ floor $30' },
-  { id: 'TOTAL_INTEGRITY',     result: 'PASS',  detail: 'Sum of items (10000) matches plan total (10000)' },
-  { id: 'GOAL_ALIGNMENT',      result: 'PASS',  detail: 'Item maps to declared need: copywriting' },
-  { id: 'ML_RISK',             result: 'PASS',  detail: 'Risk score 0.22 < 0.40 threshold' },
-  { id: 'SINGLE_VENDOR_SHARE', result: 'PASS',  detail: 'Single vendor 100% — below block threshold' },
-]
-
-export const mockGoalBlocked: Goal = {
-  id: 3, user_id: 1,
-  raw_text: 'Write blog posts using the cheapest possible copywriters no matter what',
-  parsed: { needs: ['copywriting'], budget_minor: 10000, currency: 'USD', deadline_days: 7 },
-  budget_minor: 10000, currency: 'USD', status: 'PLAN_READY',
-  trace: traceBlocked, created_at: '2026-11-10T10:00:00Z', plan_id: 3,
-}
-
-export const mockPlanBlocked: Plan = {
-  id: 3, goal_id: 3,
-  items: [
-    { need_key: 'copywriting', provider_id: 4, provider_name: 'ContentHive', price_minor: 10000, scope: '5 blog posts (800 words each)', timeline_days: 4, offer_id: 4 },
-  ],
-  total_minor: 10000, currency: 'USD',
-  rationale: 'ContentHive was the only provider within budget, but it is not verified.',
-  payguard: { verdict: 'BLOCKED', risk_score: 0.22, ai_ok: true, flags: ['UNVERIFIED_PROVIDER'], rules: rulesBlocked },
-  status: 'CHECKED', approved_at: null,
-}
-
-// ─── Scenario: Retry + Fallback (goal 4) ─────────────────────────────────────
+// ─── Scenario 2: Retry Scenario (Goal 2) ──────────────────────────────────────
 const traceRetry: TraceEvent[] = [
-  { step: 'orchestrator',   node: 'orchestrator', summary: 'Pipeline started for goal #4',           duration_ms: 5,  status: 'OK',       used_fallback: false },
-  { step: 'goal_analyzer',  node: 'goal',         summary: 'Identified 2 needs: web_design, social_media', duration_ms: 40, status: 'OK', used_fallback: false },
-  { step: 'discovery',      node: 'discovery',    summary: 'API timeout — retrying…',                 duration_ms: 5002, status: 'RETRY', used_fallback: false, retry_count: 1 },
-  { step: 'discovery',      node: 'discovery',    summary: 'Retry OK: found 4 providers across 2 needs', duration_ms: 22, status: 'OK',  used_fallback: false },
-  { step: 'provider_agents', node: 'provider',    summary: 'DevForge → $1,800 (fallback pricing)',    duration_ms: 80, status: 'FALLBACK', used_fallback: true },
-  { step: 'provider_agents', node: 'provider',    summary: 'SocialPulse → $950',                      duration_ms: 60, status: 'OK',       used_fallback: false },
-  { step: 'negotiation',    node: 'negotiation',  summary: 'Round 2: saved $280 total',              duration_ms: 32, status: 'OK',       used_fallback: false },
-  { step: 'plan_generator', node: 'planning',     summary: 'Plan: 2 items, total $2,470',             duration_ms: 22, status: 'OK',       used_fallback: false },
-  { step: 'payguard',       node: 'payguard',     summary: 'All rules PASS — APPROVED',              duration_ms: 10, status: 'OK',       used_fallback: false },
-  { step: 'orchestrator',   node: 'orchestrator', summary: 'Pipeline complete (1 retry, 1 fallback)', duration_ms: 3,  status: 'OK',       used_fallback: false },
-]
-
-const rulesRetry: PayGuardRuleResult[] = [
-  { id: 'BUDGET_CAP',          result: 'PASS', detail: 'Plan total $2,470 ≤ goal budget $2,000 ← note: 123% (within grace)' },
-  { id: 'TXN_LIMIT',           result: 'PASS', detail: 'Plan total $2,470 ≤ max limit $10,000' },
-  { id: 'VERIFIED_PROVIDER',   result: 'PASS', detail: 'All 2 providers are verified ✓' },
-  { id: 'CURRENCY_MATCH',      result: 'PASS', detail: "Currency 'USD' is valid ISO-4217" },
-  { id: 'NO_DUPLICATE',        result: 'PASS', detail: 'No live transaction exists for this plan' },
-  { id: 'PRICE_FLOOR',         result: 'PASS', detail: 'All item prices ≥ provider minimum floors' },
-  { id: 'TOTAL_INTEGRITY',     result: 'PASS', detail: 'Sum of items (247000) matches plan total (247000)' },
-  { id: 'GOAL_ALIGNMENT',      result: 'PASS', detail: 'All items map to declared goal needs' },
-  { id: 'ML_RISK',             result: 'PASS', detail: 'Risk score 0.26 < 0.40 threshold — low risk' },
-  { id: 'SINGLE_VENDOR_SHARE', result: 'PASS', detail: 'Max vendor share 73% — below 95% block threshold' },
+  { seq: 1, ts: '2026-11-10T12:05:00Z', node: 'goal', action: 'parse_goal', summary: 'Parsed 2 need(s): catering, photography', duration_ms: 2, status: 'OK' },
+  { seq: 2, ts: '2026-11-10T12:05:01Z', node: 'discovery', action: 'discover', summary: 'Initial strict filters yielded insufficient coverage for photography', duration_ms: 3, status: 'RETRY', retry_count: 1 },
+  { seq: 3, ts: '2026-11-10T12:05:02Z', node: 'discovery', action: 'retry_discovery', summary: 'Relaxed turnaround filter: LensCraft discovered, coverage sufficient', duration_ms: 3, status: 'OK' },
+  { seq: 4, ts: '2026-11-10T12:05:03Z', node: 'negotiation', action: 'negotiate', summary: 'Negotiated 3 rounds across candidates', duration_ms: 5, status: 'OK' },
+  { seq: 5, ts: '2026-11-10T12:05:04Z', node: 'planning', action: 'generate_plan', summary: 'Synthesized plan: 2 items, total $42,466.66', duration_ms: 3, status: 'OK' },
+  { seq: 6, ts: '2026-11-10T12:05:05Z', node: 'payguard', action: 'evaluate', summary: 'All 10 rules PASS — APPROVED', duration_ms: 2, status: 'OK' },
 ]
 
 export const mockGoalRetry: Goal = {
-  id: 4, user_id: 1,
-  raw_text: 'Build a landing page and social media graphics for a product launch campaign',
-  parsed: { needs: ['web_design', 'social_media'], budget_minor: 200000, currency: 'USD', deadline_days: 14 },
-  budget_minor: 200000, currency: 'USD', status: 'PLAN_READY',
-  trace: traceRetry, created_at: '2026-11-10T11:00:00Z', plan_id: 4,
+  id: 2,
+  status: 'PLAN_READY',
+  raw_text: 'Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days',
+  budget_minor: 5000000,
+  currency: 'USD',
+  scenario: 'retry',
+  parsed: {
+    needs: [
+      { key: 'catering', category: 'catering', quantity: 100, must_haves: [] },
+      { key: 'photography', category: 'photography', quantity: 1, must_haves: [] },
+    ],
+    deadline_days: 10,
+    currency: 'USD',
+  },
+  question: null,
+  trace: traceRetry,
+  plan_id: 2,
+  created_at: '2026-11-10T12:05:00Z',
 }
 
 export const mockPlanRetry: Plan = {
-  id: 4, goal_id: 4,
+  id: 2,
+  goal_id: 2,
+  status: 'CHECKED',
+  currency: 'USD',
+  total_minor: 4246666,
+  budget_minor: 5000000,
+  rationale: 'Initial strict filters relaxed preference constraints (verification was preserved). ABC Catering and LensCraft selected within budget.',
   items: [
-    { need_key: 'web_design',   provider_id: 2, provider_name: 'DevForge Labs',      price_minor: 170000, scope: 'Landing page (responsive, Webflow)', timeline_days: 10, offer_id: 5 },
-    { need_key: 'social_media', provider_id: 7, provider_name: 'SocialPulse Agency', price_minor: 77000,  scope: '10 graphics + copy for 3 platforms', timeline_days: 6,  offer_id: 6 },
+    { need_key: 'catering', provider_id: 1, provider_name: 'ABC Catering', price_minor: 2496666, timeline_days: 7, verified: true, currency: 'USD' },
+    { need_key: 'photography', provider_id: 5, provider_name: 'LensCraft', price_minor: 1750000, timeline_days: 9, verified: true, currency: 'USD' },
   ],
-  total_minor: 247000, currency: 'USD',
-  rationale: 'DevForge Labs (fallback pricing applied after timeout) and SocialPulse Agency deliver the full scope within 10 days. Slight budget overage accommodated by policy grace.',
-  payguard: { verdict: 'APPROVED', risk_score: 0.26, ai_ok: true, flags: [], rules: rulesRetry },
-  status: 'CHECKED', approved_at: null,
+  payguard: {
+    verdict: 'APPROVED',
+    risk_score: 0.15,
+    ai_ok: true,
+    flags: [],
+    rules: rulesClean,
+  },
+  acknowledged_flags: [],
+  approved_at: null,
 }
 
-// ─── Offers (all goals) ───────────────────────────────────────────────────────
-export const mockOffers: Offer[] = [
-  // Goal 1 — web_design
-  { id: 1, goal_id: 1, provider_id: 1, need_key: 'web_design',   round: 1, price_minor: 300000, scope: 'Full web design', timeline_days: 10, status: 'OPEN' },
-  { id: 2, goal_id: 1, provider_id: 1, need_key: 'web_design',   round: 2, price_minor: 230000, scope: 'Full web design', timeline_days: 10, status: 'SELECTED' },
-  // Goal 1 — copywriting
-  { id: 3, goal_id: 1, provider_id: 3, need_key: 'copywriting',  round: 1, price_minor: 100000, scope: 'Homepage + 4 feature pages', timeline_days: 5, status: 'OPEN' },
-  { id: 4, goal_id: 1, provider_id: 3, need_key: 'copywriting',  round: 2, price_minor: 88000,  scope: 'Homepage + 4 feature pages', timeline_days: 5, status: 'SELECTED' },
-  // Goal 2 — logo_design
-  { id: 5, goal_id: 2, provider_id: 6, need_key: 'logo_design',  round: 1, price_minor: 25000,  scope: '3 concepts', timeline_days: 3, status: 'OPEN' },
-  { id: 6, goal_id: 2, provider_id: 6, need_key: 'logo_design',  round: 2, price_minor: 17000,  scope: '3 concepts + revisions', timeline_days: 3, status: 'SELECTED' },
-  // Goal 3 — copywriting
-  { id: 7, goal_id: 3, provider_id: 4, need_key: 'copywriting',  round: 1, price_minor: 11000,  scope: '5 blog posts', timeline_days: 4, status: 'OPEN' },
-  { id: 8, goal_id: 3, provider_id: 4, need_key: 'copywriting',  round: 2, price_minor: 10000,  scope: '5 blog posts', timeline_days: 4, status: 'SELECTED' },
-  // Goal 4 — web + social
-  { id: 9,  goal_id: 4, provider_id: 2, need_key: 'web_design',   round: 1, price_minor: 250000, scope: 'Landing page', timeline_days: 10, status: 'OPEN' },
-  { id: 10, goal_id: 4, provider_id: 2, need_key: 'web_design',   round: 2, price_minor: 170000, scope: 'Landing page', timeline_days: 10, status: 'SELECTED' },
-  { id: 11, goal_id: 4, provider_id: 7, need_key: 'social_media', round: 1, price_minor: 100000, scope: '10 graphics', timeline_days: 6, status: 'OPEN' },
-  { id: 12, goal_id: 4, provider_id: 7, need_key: 'social_media', round: 2, price_minor: 77000,  scope: '10 graphics + copy', timeline_days: 6, status: 'SELECTED' },
+// ─── Scenario 3: Blocked Scenario (Goal 3) ────────────────────────────────────
+const traceBlocked: TraceEvent[] = [
+  { seq: 1, ts: '2026-11-10T12:10:00Z', node: 'goal', action: 'parse_goal', summary: 'Parsed 2 need(s): catering, photography', duration_ms: 2, status: 'OK' },
+  { seq: 2, ts: '2026-11-10T12:10:01Z', node: 'discovery', action: 'discover', summary: 'Low budget $36,000 forced inclusion of unverified candidates', duration_ms: 3, status: 'OK' },
+  { seq: 3, ts: '2026-11-10T12:10:02Z', node: 'negotiation', action: 'negotiate', summary: 'Concluded round 2 for QuickBites Co & PixelNest', duration_ms: 4, status: 'OK' },
+  { seq: 4, ts: '2026-11-10T12:10:03Z', node: 'planning', action: 'generate_plan', summary: 'Plan generated with unverified provider QuickBites Co', duration_ms: 3, status: 'OK' },
+  { seq: 5, ts: '2026-11-10T12:10:04Z', node: 'payguard', action: 'evaluate', summary: 'Rule VERIFIED_PROVIDER failed: BLOCK verdict triggered', duration_ms: 2, status: 'ERROR' },
 ]
+
+const rulesBlocked: PayGuardRuleResult[] = [
+  { id: 'BUDGET_CAP', result: 'PASS', detail: 'Plan total $32,000.00 <= goal budget $36,000.00' },
+  { id: 'TXN_LIMIT', result: 'PASS', detail: 'Plan total $32,000.00 <= max limit $100,000.00' },
+  { id: 'VERIFIED_PROVIDER', result: 'BLOCK', detail: 'Provider QuickBites Co is NOT verified — settlement strictly prohibited' },
+  { id: 'CURRENCY_MATCH', result: 'PASS', detail: "Currency 'USD' matches goal currency" },
+  { id: 'NO_DUPLICATE', result: 'PASS', detail: 'No existing transaction exists' },
+  { id: 'PRICE_FLOOR', result: 'PASS', detail: 'Prices exceed minimum floors' },
+  { id: 'TOTAL_INTEGRITY', result: 'PASS', detail: 'Item sum matches total' },
+  { id: 'AI_RISK_HIGH', result: 'PASS', detail: 'AI risk score 0.20 < 0.70' },
+  { id: 'AI_RISK_MEDIUM', result: 'PASS', detail: 'AI risk score 0.20 < 0.40' },
+  { id: 'SINGLE_VENDOR_SHARE', result: 'PASS', detail: 'Vendor share 62.5% <= 70%' },
+]
+
+export const mockGoalBlocked: Goal = {
+  id: 3,
+  status: 'PLAN_READY',
+  raw_text: 'Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days',
+  budget_minor: 3600000,
+  currency: 'USD',
+  scenario: 'blocked',
+  parsed: {
+    needs: [
+      { key: 'catering', category: 'catering', quantity: 100, must_haves: [] },
+      { key: 'photography', category: 'photography', quantity: 1, must_haves: [] },
+    ],
+    deadline_days: 10,
+    currency: 'USD',
+  },
+  question: null,
+  trace: traceBlocked,
+  plan_id: 3,
+  created_at: '2026-11-10T12:10:00Z',
+}
+
+export const mockPlanBlocked: Plan = {
+  id: 3,
+  goal_id: 3,
+  status: 'CHECKED',
+  currency: 'USD',
+  total_minor: 3200000,
+  budget_minor: 3600000,
+  rationale: 'Lowest-cost providers fit within the reduced budget, but QuickBites Co fails the verified provider security check.',
+  items: [
+    { need_key: 'catering', provider_id: 3, provider_name: 'QuickBites Co', price_minor: 2000000, timeline_days: 5, verified: false, currency: 'USD' },
+    { need_key: 'photography', provider_id: 6, provider_name: 'PixelNest', price_minor: 1200000, timeline_days: 3, verified: false, currency: 'USD' },
+  ],
+  payguard: {
+    verdict: 'BLOCKED',
+    risk_score: 0.20,
+    ai_ok: true,
+    flags: [
+      { id: 'VERIFIED_PROVIDER', source: 'POLICY', message: 'Provider QuickBites Co is NOT verified', requires_ack: false },
+    ],
+    rules: rulesBlocked,
+  },
+  acknowledged_flags: [],
+  approved_at: null,
+}
+
+// ─── Scenario 4: Review Scenario (Goal 4) ────────────────────────────────────
+const traceReview: TraceEvent[] = [
+  { seq: 1, ts: '2026-11-10T12:15:00Z', node: 'goal', action: 'parse_goal', summary: 'Parsed 1 need: catering', duration_ms: 2, status: 'OK' },
+  { seq: 2, ts: '2026-11-10T12:15:01Z', node: 'discovery', action: 'discover', summary: 'Found 3 catering providers', duration_ms: 3, status: 'OK' },
+  { seq: 3, ts: '2026-11-10T12:15:02Z', node: 'negotiation', action: 'negotiate', summary: 'Negotiated 3 rounds with ABC Catering', duration_ms: 4, status: 'OK' },
+  { seq: 4, ts: '2026-11-10T12:15:03Z', node: 'planning', action: 'generate_plan', summary: 'Synthesized single-vendor plan: $24,966.66', duration_ms: 2, status: 'OK' },
+  { seq: 5, ts: '2026-11-10T12:15:04Z', node: 'payguard', action: 'evaluate', summary: 'SINGLE_VENDOR_SHARE rule triggered REVIEW verdict', duration_ms: 2, status: 'OK' },
+]
+
+const flagsReview: Flag[] = [
+  {
+    id: 'SINGLE_VENDOR_SHARE',
+    source: 'POLICY',
+    message: 'Single vendor (ABC Catering) accounts for 100.0% of plan total (exceeds 70.0% threshold)',
+    requires_ack: true,
+  },
+]
+
+const rulesReview: PayGuardRuleResult[] = [
+  { id: 'BUDGET_CAP', result: 'PASS', detail: 'Plan total $24,966.66 <= goal budget $50,000.00' },
+  { id: 'TXN_LIMIT', result: 'PASS', detail: 'Plan total $24,966.66 <= max limit $100,000.00' },
+  { id: 'VERIFIED_PROVIDER', result: 'PASS', detail: 'ABC Catering is verified' },
+  { id: 'CURRENCY_MATCH', result: 'PASS', detail: "Currency 'USD' matches goal" },
+  { id: 'NO_DUPLICATE', result: 'PASS', detail: 'No duplicate transaction' },
+  { id: 'PRICE_FLOOR', result: 'PASS', detail: 'Price $24,966.66 >= floor $24,000.00' },
+  { id: 'TOTAL_INTEGRITY', result: 'PASS', detail: 'Sum matches total' },
+  { id: 'AI_RISK_HIGH', result: 'PASS', detail: 'AI risk score 0.10 < 0.70' },
+  { id: 'AI_RISK_MEDIUM', result: 'PASS', detail: 'AI risk score 0.10 < 0.40' },
+  { id: 'SINGLE_VENDOR_SHARE', result: 'REVIEW', detail: 'Single vendor accounts for 100.0% of plan total (threshold 70.0%)' },
+]
+
+export const mockGoalReview: Goal = {
+  id: 4,
+  status: 'PLAN_READY',
+  raw_text: 'Catering for 100 people for our office event in 10 days',
+  budget_minor: 5000000,
+  currency: 'USD',
+  scenario: 'review',
+  parsed: {
+    needs: [
+      { key: 'catering', category: 'catering', quantity: 100, must_haves: [] },
+    ],
+    deadline_days: 10,
+    currency: 'USD',
+  },
+  question: null,
+  trace: traceReview,
+  plan_id: 4,
+  created_at: '2026-11-10T12:15:00Z',
+}
+
+export const mockPlanReview: Plan = {
+  id: 4,
+  goal_id: 4,
+  status: 'CHECKED',
+  currency: 'USD',
+  total_minor: 2496666,
+  budget_minor: 5000000,
+  rationale: 'ABC Catering selected as the single caterer for 100 guests. Concentration risk flagged for human acknowledgment.',
+  items: [
+    { need_key: 'catering', provider_id: 1, provider_name: 'ABC Catering', price_minor: 2496666, timeline_days: 7, verified: true, currency: 'USD' },
+  ],
+  payguard: {
+    verdict: 'REVIEW',
+    risk_score: 0.10,
+    ai_ok: true,
+    flags: flagsReview,
+    rules: rulesReview,
+  },
+  acknowledged_flags: [],
+  approved_at: null,
+}
+
+// ─── Grouped Offers (matching backend OffersOut) ──────────────────────────────
+export const mockOffersOut: OffersOut = {
+  goal_id: 1,
+  groups: [
+    {
+      need_key: 'catering',
+      offers: [
+        {
+          provider_id: 1,
+          provider_name: 'ABC Catering',
+          verified: true,
+          rating: 4.6,
+          timeline_days: 7,
+          opening_price_minor: 2800000,
+          final_price_minor: 2496666,
+          status: 'SELECTED',
+          rounds: [
+            { round: 0, price_minor: 2800000, counter_minor: null, status: 'OPEN', scope: 'Full buffet catering for 100' },
+            { round: 1, price_minor: 2695000, counter_minor: 2520000, status: 'COUNTERED', scope: 'Full buffet catering for 100' },
+            { round: 2, price_minor: 2593938, counter_minor: 2425500, status: 'COUNTERED', scope: 'Full buffet catering for 100' },
+            { round: 3, price_minor: 2496666, counter_minor: 2334544, status: 'SELECTED', scope: 'Full buffet catering for 100' },
+          ],
+        },
+        {
+          provider_id: 2,
+          provider_name: 'Spice Route Caterers',
+          verified: true,
+          rating: 4.4,
+          timeline_days: 6,
+          opening_price_minor: 3200000,
+          final_price_minor: 2838144,
+          status: 'ACCEPTED',
+          rounds: [
+            { round: 0, price_minor: 3200000, counter_minor: null, status: 'OPEN', scope: 'Regional Indian buffet' },
+            { round: 1, price_minor: 3072000, counter_minor: 2880000, status: 'COUNTERED', scope: 'Regional Indian buffet' },
+            { round: 2, price_minor: 2949120, counter_minor: 2764800, status: 'COUNTERED', scope: 'Regional Indian buffet' },
+            { round: 3, price_minor: 2838144, counter_minor: 2700000, status: 'ACCEPTED', scope: 'Regional Indian buffet' },
+          ],
+        },
+      ],
+    },
+    {
+      need_key: 'photography',
+      offers: [
+        {
+          provider_id: 4,
+          provider_name: 'Studio X',
+          verified: true,
+          rating: 4.7,
+          timeline_days: 4,
+          opening_price_minor: 1800000,
+          final_price_minor: 1600000,
+          status: 'SELECTED',
+          rounds: [
+            { round: 0, price_minor: 1800000, counter_minor: null, status: 'OPEN', scope: 'Full-day event coverage & gallery' },
+            { round: 1, price_minor: 1730700, counter_minor: 1620000, status: 'COUNTERED', scope: 'Full-day event coverage & gallery' },
+            { round: 2, price_minor: 1664068, counter_minor: 1557630, status: 'COUNTERED', scope: 'Full-day event coverage & gallery' },
+            { round: 3, price_minor: 1600000, counter_minor: 1500000, status: 'SELECTED', scope: 'Full-day event coverage & gallery' },
+          ],
+        },
+        {
+          provider_id: 5,
+          provider_name: 'LensCraft',
+          verified: true,
+          rating: 4.2,
+          timeline_days: 9,
+          opening_price_minor: 2100000,
+          final_price_minor: 1862528,
+          status: 'ACCEPTED',
+          rounds: [
+            { round: 0, price_minor: 2100000, counter_minor: null, status: 'OPEN', scope: 'Candid event documentary' },
+            { round: 1, price_minor: 2016000, counter_minor: 1890000, status: 'COUNTERED', scope: 'Candid event documentary' },
+            { round: 2, price_minor: 1935360, counter_minor: 1814400, status: 'COUNTERED', scope: 'Candid event documentary' },
+            { round: 3, price_minor: 1862528, counter_minor: 1750000, status: 'ACCEPTED', scope: 'Candid event documentary' },
+          ],
+        },
+      ],
+    },
+  ],
+}
 
 // ─── Transactions ─────────────────────────────────────────────────────────────
 export const mockTransactions: Transaction[] = [
   {
-    id: 1, plan_id: 1, paypal_order_id: 'PP-MOCK-ORDER-7KX22109HM',
-    capture_id: 'CAP-7KX22109HM9876543', amount_minor: 318000, currency: 'USD',
-    status: 'COMPLETED', created_at: '2026-11-09T14:22:00Z',
-  },
-  {
-    id: 2, plan_id: 2, paypal_order_id: 'PP-MOCK-ORDER-5XY33210JN',
-    capture_id: null, amount_minor: 17000, currency: 'USD',
-    status: 'CREATED', created_at: '2026-11-10T10:05:00Z',
+    id: 1,
+    plan_id: 1,
+    goal_id: 1,
+    goal_summary: 'Corporate event in Bangalore: catering for 100 people and a photographer',
+    paypal_order_id: 'MOCK-plan-1',
+    capture_id: 'MOCK-CAP-MOCK-plan-1',
+    amount_minor: 4096666,
+    currency: 'USD',
+    status: 'COMPLETED',
+    created_at: '2026-11-10T12:00:02Z',
   },
 ]
 
-// ─── Scenario map (used by mockClient) ───────────────────────────────────────
-export type ScenarioId = 'approved' | 'review' | 'blocked' | 'retry'
-
-export interface ScenarioData {
-  goal: Goal
-  plan: Plan
-  offers: Offer[]
-}
-
-export const SCENARIO_MAP: Record<number, ScenarioData> = {
-  1: { goal: mockGoalApproved, plan: mockPlanApproved, offers: mockOffers.filter(o => o.goal_id === 1) },
-  2: { goal: mockGoalReview,   plan: mockPlanReview,   offers: mockOffers.filter(o => o.goal_id === 2) },
-  3: { goal: mockGoalBlocked,  plan: mockPlanBlocked,  offers: mockOffers.filter(o => o.goal_id === 3) },
-  4: { goal: mockGoalRetry,    plan: mockPlanRetry,    offers: mockOffers.filter(o => o.goal_id === 4) },
+export const SCENARIO_MAP: Record<number, { goal: Goal; plan: Plan; offers: OffersOut }> = {
+  1: { goal: mockGoalClean, plan: mockPlanClean, offers: mockOffersOut },
+  2: { goal: mockGoalRetry, plan: mockPlanRetry, offers: mockOffersOut },
+  3: { goal: mockGoalBlocked, plan: mockPlanBlocked, offers: mockOffersOut },
+  4: { goal: mockGoalReview, plan: mockPlanReview, offers: mockOffersOut },
 }

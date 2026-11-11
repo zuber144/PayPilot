@@ -1,10 +1,10 @@
 // src/components/payment/ApprovalPanel.tsx
 import React, { useState } from 'react'
-import type { Plan } from '../../api/types'
+import type { Plan, Flag } from '../../api/types'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { useKillSwitch } from '../../context/KillSwitchContext'
-import { getPayGuard } from '../../api/types'
+import { getPayGuard, getFlagId, getFlagMessage, isFlagAckRequired } from '../../api/types'
 
 interface ApprovalPanelProps {
   plan: Plan
@@ -22,19 +22,25 @@ export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
   const verdict = payguard?.verdict ?? 'APPROVED'
   const flags = payguard?.flags ?? []
 
-  // Track acknowledged flags
+  // Filter flags that require explicit acknowledgment
+  const ackRequiredFlags = flags.filter(isFlagAckRequired)
+
+  // Track acknowledged flags by their string id
   const [acknowledged, setAcknowledged] = useState<Record<string, boolean>>({})
   const [authorized, setAuthorized] = useState(false)
 
   const isBlocked = verdict === 'BLOCKED'
   const isReview = verdict === 'REVIEW'
 
-  // If review, all flags must be checked
-  const allFlagsAcknowledged = flags.length === 0 || flags.every((f) => acknowledged[f])
+  // If review, all ack-required flags must be checked
+  const allFlagsAcknowledged =
+    ackRequiredFlags.length === 0 ||
+    ackRequiredFlags.every((f) => acknowledged[getFlagId(f)])
+
   const canSubmit = !isBlocked && paymentsEnabled && authorized && allFlagsAcknowledged
 
-  const handleToggleFlag = (flag: string) => {
-    setAcknowledged((prev) => ({ ...prev, [flag]: !prev[flag] }))
+  const handleToggleFlag = (id: string) => {
+    setAcknowledged((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -67,28 +73,32 @@ export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* If REVIEW, render per-flag checkboxes */}
-        {isReview && flags.length > 0 && (
+        {/* If REVIEW, render per-flag checkboxes for flags requiring ack */}
+        {isReview && ackRequiredFlags.length > 0 && (
           <div className="space-y-2 p-3 bg-amber-50/70 border border-amber-200 rounded-lg">
             <span className="text-xs font-semibold text-amber-900 block">
               Mandatory Risk Acknowledgment:
             </span>
-            {flags.map((flag) => (
-              <label
-                key={flag}
-                className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer select-none"
-              >
-                <input
-                  type="checkbox"
-                  checked={Boolean(acknowledged[flag])}
-                  onChange={() => handleToggleFlag(flag)}
-                  className="mt-0.5 rounded border-slate-300 text-paypal-500 focus:ring-paypal-500"
-                />
-                <span>
-                  I acknowledge and accept the risk factor: <strong className="font-mono text-amber-950">{flag}</strong>
-                </span>
-              </label>
-            ))}
+            {ackRequiredFlags.map((flag) => {
+              const id = getFlagId(flag)
+              const msg = getFlagMessage(flag)
+              return (
+                <label
+                  key={id}
+                  className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={Boolean(acknowledged[id])}
+                    onChange={() => handleToggleFlag(id)}
+                    className="mt-0.5 rounded border-slate-300 text-paypal-500 focus:ring-paypal-500"
+                  />
+                  <span>
+                    I acknowledge and accept: <strong className="font-mono text-amber-950">{id}</strong> — {msg}
+                  </span>
+                </label>
+              )
+            })}
           </div>
         )}
 

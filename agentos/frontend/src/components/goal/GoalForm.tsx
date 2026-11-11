@@ -4,7 +4,7 @@ import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { ScenarioChips } from './ScenarioChips'
 import type { ScenarioChip } from '../../lib/constants'
-import type { CreateGoalRequest } from '../../api/types'
+import type { CreateGoalRequest, Scenario } from '../../api/types'
 
 interface GoalFormProps {
   onSubmit: (data: CreateGoalRequest) => void
@@ -13,13 +13,15 @@ interface GoalFormProps {
 
 export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, isSubmitting }) => {
   const [goalText, setGoalText] = useState('')
-  const [budgetMajor, setBudgetMajor] = useState<number>(5000)
+  const [budgetMajor, setBudgetMajor] = useState<number>(50000)
   const [currency, setCurrency] = useState<'USD' | 'INR'>('USD')
+  const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null)
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>()
   const [error, setError] = useState<string | null>(null)
 
   const handleScenarioSelect = (scenario: ScenarioChip) => {
     setSelectedScenarioId(scenario.id)
+    setSelectedScenario(scenario.scenario)
     setGoalText(scenario.goalText)
     setBudgetMajor(scenario.budgetMinor / 100)
     setCurrency(scenario.currency as 'USD' | 'INR')
@@ -42,7 +44,7 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, isSubmitting }) =>
       raw_text: goalText.trim(),
       budget_minor: Math.round(budgetMajor * 100),
       currency,
-      user_id: 1, // Demo user
+      scenario: selectedScenario,
     })
   }
 
@@ -69,9 +71,10 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, isSubmitting }) =>
             onChange={(e) => {
               setGoalText(e.target.value)
               setSelectedScenarioId(undefined)
+              setSelectedScenario(null)
               if (error) setError(null)
             }}
-            placeholder="e.g. Build a modern landing page for a B2B SaaS startup with copywriting and brand graphics within 2 weeks"
+            placeholder="e.g. Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days"
             className="w-full rounded-lg border-slate-300 shadow-sm focus:border-paypal-500 focus:ring-paypal-500 text-sm p-3 transition-colors"
           />
         </div>
@@ -108,7 +111,7 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, isSubmitting }) =>
               className="w-full py-2 px-3 rounded-lg border-slate-300 text-sm focus:border-paypal-500 focus:ring-paypal-500 bg-white"
             >
               <option value="USD">USD ($) — PayPal Sandbox Default</option>
-              <option value="INR">INR (₹) — Indian Rupee (Paise)</option>
+              <option value="INR">INR (₹) — Indian Rupee (Demo)</option>
             </select>
           </div>
         </div>

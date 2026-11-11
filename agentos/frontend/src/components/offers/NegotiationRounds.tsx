@@ -1,16 +1,16 @@
 // src/components/offers/NegotiationRounds.tsx
 import React from 'react'
-import type { Offer } from '../../api/types'
+import type { OfferRound } from '../../api/types'
 import { formatMinor } from '../../lib/money'
 import { Badge } from '../ui/Badge'
 
 interface NegotiationRoundsProps {
-  offers: Offer[]
+  rounds: OfferRound[]
   currency?: string
 }
 
-export const NegotiationRounds: React.FC<NegotiationRoundsProps> = ({ offers, currency = 'USD' }) => {
-  const sorted = [...offers].sort((a, b) => a.round - b.round)
+export const NegotiationRounds: React.FC<NegotiationRoundsProps> = ({ rounds, currency = 'USD' }) => {
+  const sorted = [...rounds].sort((a, b) => a.round - b.round)
 
   return (
     <div className="overflow-x-auto">
@@ -19,36 +19,48 @@ export const NegotiationRounds: React.FC<NegotiationRoundsProps> = ({ offers, cu
           <tr>
             <th className="px-3 py-2 text-left">Round</th>
             <th className="px-3 py-2 text-left">Status</th>
-            <th className="px-3 py-2 text-left">Offered Scope</th>
-            <th className="px-3 py-2 text-right">Quote</th>
+            <th className="px-3 py-2 text-left">Scope / Proposal</th>
+            <th className="px-3 py-2 text-right">Counter Bid</th>
+            <th className="px-3 py-2 text-right">Offered Quote</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 bg-white">
-          {sorted.map((offer) => {
-            const isSelected = offer.status === 'SELECTED'
+          {sorted.map((r, idx) => {
+            const isSelected = r.status === 'SELECTED'
             return (
               <tr
-                key={offer.id}
-                className={isSelected ? 'bg-emerald-50/50 font-medium' : 'hover:bg-slate-50'}
+                key={`${r.round}-${idx}`}
+                className={isSelected ? 'bg-emerald-50/60 font-medium' : 'hover:bg-slate-50'}
               >
-                <td className="px-3 py-2 font-mono text-slate-600">Round {offer.round}</td>
+                <td className="px-3 py-2 font-mono text-slate-600">
+                  {r.round === 0 ? 'Opening (R0)' : `Round ${r.round}`}
+                </td>
                 <td className="px-3 py-2">
                   <Badge
                     size="sm"
                     variant={
                       isSelected
                         ? 'emerald'
-                        : offer.status === 'OPEN'
+                        : r.status === 'ACCEPTED'
+                        ? 'emerald'
+                        : r.status === 'COUNTERED'
+                        ? 'amber'
+                        : r.status === 'OPEN'
                         ? 'blue'
                         : 'slate'
                     }
                   >
-                    {offer.status}
+                    {r.status}
                   </Badge>
                 </td>
-                <td className="px-3 py-2 text-slate-700">{offer.scope}</td>
+                <td className="px-3 py-2 text-slate-700 max-w-xs truncate" title={r.scope}>
+                  {r.scope || 'Full service deliverables'}
+                </td>
+                <td className="px-3 py-2 text-right font-mono text-slate-500">
+                  {r.counter_minor ? formatMinor(r.counter_minor, currency) : '—'}
+                </td>
                 <td className="px-3 py-2 text-right font-mono font-semibold text-slate-900">
-                  {formatMinor(offer.price_minor, currency)}
+                  {formatMinor(r.price_minor, currency)}
                 </td>
               </tr>
             )

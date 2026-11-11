@@ -1,7 +1,7 @@
 // src/pages/GoalExecution.tsx (Screen 2)
 import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useGoal, useGoalOffers, useProviders } from '../api/hooks'
+import { useGoal, useGoalOffers } from '../api/hooks'
 import { AgentTimeline } from '../components/trace/AgentTimeline'
 import { OfferGroup } from '../components/offers/OfferGroup'
 import { Card } from '../components/ui/Card'
@@ -18,8 +18,7 @@ export const GoalExecution: React.FC = () => {
 
   // Poll while RUNNING
   const { data: goal, isLoading, error, refetch } = useGoal(goalId, { poll: true })
-  const { data: offers = [] } = useGoalOffers(goalId)
-  const { data: providers = [] } = useProviders()
+  const { data: offersData } = useGoalOffers(goalId)
 
   const [elapsed, setElapsed] = useState<string>('0s')
 
@@ -52,8 +51,7 @@ export const GoalExecution: React.FC = () => {
 
   const isRunning = goal.status === 'RUNNING'
   const isReady = goal.status === 'PLAN_READY' || Boolean(goal.plan_id)
-
-  // Extract distinct needs
+  const offerGroups = offersData?.groups ?? []
   const needs = goal.parsed?.needs ?? []
 
   return (
@@ -74,6 +72,11 @@ export const GoalExecution: React.FC = () => {
               {isRunning && <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />}
               {GOAL_STATUS_LABEL[goal.status] || goal.status}
             </span>
+            {goal.scenario && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-purple-50 text-purple-700 border border-purple-200 uppercase">
+                Scenario: {goal.scenario}
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500 mt-1 line-clamp-1 max-w-2xl">{goal.raw_text}</p>
         </div>
@@ -93,6 +96,17 @@ export const GoalExecution: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* If Goal requires clarification (NEEDS_INPUT) */}
+      {goal.status === 'NEEDS_INPUT' && goal.question && (
+        <Card padding="md" className="border-amber-300 bg-amber-50 space-y-2">
+          <div className="flex items-center gap-2 font-bold text-amber-900 text-sm">
+            <span>❓</span>
+            <span>Agent Clarification Needed</span>
+          </div>
+          <p className="text-xs text-amber-800 leading-relaxed">{goal.question}</p>
+        </Card>
+      )}
 
       {/* Main Grid: Left = Timeline, Right = Parsed Requirements & Offers */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -124,35 +138,38 @@ export const GoalExecution: React.FC = () => {
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">Declared Needs</span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {goal.parsed.needs.map((n) => (
-                      <span
-                        key={n}
-                        className="px-2 py-0.5 rounded bg-slate-100 text-navy-600 font-mono text-[11px] font-semibold"
-                      >
-                        {n.replace('_', ' ')}
-                      </span>
-                    ))}
+                    {needs.map((n, idx) => {
+                      const needKey = typeof n === 'string' ? n : n.key
+                      return (
+                        <span
+                          key={`${needKey}-${idx}`}
+                          className="px-2 py-0.5 rounded bg-slate-100 text-navy-600 font-mono text-[11px] font-semibold"
+                        >
+                          {needKey.replace('_', ' ')}
+                        </span>
+                      )
+                    })}
                   </div>
                 </div>
 
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">Budget Ceiling</span>
                   <div className="font-mono font-bold text-slate-900 text-sm mt-1">
-                    {formatMinor(goal.parsed.budget_minor, goal.parsed.currency)}
+                    {formatMinor(goal.budget_minor, goal.currency)}
                   </div>
                 </div>
 
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">Deadline</span>
                   <div className="font-semibold text-slate-800 mt-1">
-                    {goal.parsed.deadline_days} days
+                    {goal.parsed.deadline_days ? `${goal.parsed.deadline_days} days` : 'Flexible'}
                   </div>
                 </div>
 
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">Currency</span>
                   <div className="font-mono text-slate-800 mt-1">
-                    {goal.parsed.currency}
+                    {goal.currency}
                   </div>
                 </div>
               </div>
@@ -163,35 +180,30 @@ export const GoalExecution: React.FC = () => {
             )}
           </Card>
 
-          {/* Negotiated Offers */}
+          {/* Negotiated Offers Grouped by Need */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Autonomous Provider Negotiations
               </h3>
               <span className="text-xs text-slate-400">
-                {offers.length === 0 ? 'Negotiating…' : `${offers.length} quote(s)`}
+                {offerGroups.length === 0 ? 'Negotiating…' : `${offerGroups.length} need category(ies)`}
               </span>
             </div>
 
-            {offers.length === 0 ? (
+            {offerGroups.length === 0 ? (
               <Card padding="md" className="text-center text-xs text-slate-400 py-8">
                 Provider agents will place bids and counter-offers once discovery completes.
               </Card>
             ) : (
-              needs.map((needKey) => {
-                const needOffers = offers.filter((o) => o.need_key === needKey)
-                if (needOffers.length === 0) return null
-                return (
-                  <OfferGroup
-                    key={needKey}
-                    needKey={needKey}
-                    offers={needOffers}
-                    providers={providers}
-                    currency={goal.currency}
-                  />
-                )
-              })
+              offerGroups.map((group) => (
+                <OfferGroup
+                  key={group.need_key}
+                  needKey={group.need_key}
+                  offers={group.offers}
+                  currency={goal.currency}
+                />
+              ))
             )}
           </div>
         </div>

@@ -2,12 +2,12 @@
 import React from 'react'
 
 interface RiskGaugeProps {
-  score: number | null // 0.0 - 1.0 float; or null if offline
+  score?: number | null // 0.0 - 1.0 float; or null/undefined if offline
   aiOk?: boolean
 }
 
 export const RiskGauge: React.FC<RiskGaugeProps> = ({ score, aiOk = true }) => {
-  if (score === null || !aiOk) {
+  if (score === null || score === undefined || !aiOk) {
     return (
       <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
         <span className="text-xs text-slate-500 font-medium">

@@ -7,7 +7,8 @@ import type {
   CaptureResponse,
   CreateGoalRequest,
   Goal,
-  Offer,
+  GoalCreated,
+  OffersOut,
   PayGuardResult,
   PayResponse,
   Plan,
@@ -18,10 +19,10 @@ import type {
 // ─── Goal Hooks ───────────────────────────────────────────────────────────────
 export function useCreateGoal() {
   const queryClient = useQueryClient()
-  return useMutation<Goal, Error, CreateGoalRequest>({
+  return useMutation<GoalCreated, Error, CreateGoalRequest>({
     mutationFn: (data) => api.createGoal(data),
-    onSuccess: (goal) => {
-      queryClient.setQueryData(['goal', goal.id], goal)
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['goal', res.id] })
     },
   })
 }
@@ -46,10 +47,10 @@ export function useGoal(id: number | null | undefined, options?: { poll?: boolea
 }
 
 export function useGoalOffers(goalId: number | null | undefined) {
-  return useQuery<Offer[], Error>({
+  return useQuery<OffersOut, Error>({
     queryKey: ['offers', goalId],
-    queryFn: () => {
-      if (!goalId) return []
+    queryFn: async () => {
+      if (!goalId) return { goal_id: 0, groups: [] }
       return api.getGoalOffers(goalId)
     },
     enabled: Boolean(goalId),
@@ -105,10 +106,12 @@ export function usePayPlan(planId: number | null | undefined) {
 
 export function useCapturePayment() {
   const queryClient = useQueryClient()
-  return useMutation<CaptureResponse, Error, { token: string; planId: number }>({
+  return useMutation<CaptureResponse, Error, { token: string; planId?: number }>({
     mutationFn: ({ token, planId }) => api.capturePayment(token, planId),
     onSuccess: (_res, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['plan', variables.planId] })
+      if (variables.planId) {
+        queryClient.invalidateQueries({ queryKey: ['plan', variables.planId] })
+      }
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
     },
   })

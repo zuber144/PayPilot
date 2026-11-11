@@ -50,14 +50,16 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({ receipt, orderId, plan
         <div className="py-2.5 flex items-center justify-between">
           <span className="text-slate-500 font-medium">Capture ID</span>
           <div className="flex items-center gap-1.5 font-mono font-semibold text-slate-900">
-            <span>{receipt.capture_id}</span>
-            <button
-              type="button"
-              onClick={() => copyToClipboard(receipt.capture_id, 'capture')}
-              className="text-[10px] text-paypal-600 hover:text-paypal-700 underline"
-            >
-              {copied === 'capture' ? 'Copied!' : 'Copy'}
-            </button>
+            <span>{receipt.capture_id ?? 'Pending'}</span>
+            {receipt.capture_id && (
+              <button
+                type="button"
+                onClick={() => copyToClipboard(receipt.capture_id!, 'capture')}
+                className="text-[10px] text-paypal-600 hover:text-paypal-700 underline"
+              >
+                {copied === 'capture' ? 'Copied!' : 'Copy'}
+              </button>
+            )}
           </div>
         </div>
 
