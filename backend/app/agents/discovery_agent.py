@@ -1,4 +1,5 @@
-"""Discovery Agent: filters and ranks candidate providers per need and reports coverage.
+"""Discovery Agent: filters and ranks store listings (from app.search) per shopping-list item and
+reports verified-seller coverage.
 
 Pure functions: no DB writes, no trace writes.
 Verification is never a preference filter and is never relaxed by retries.

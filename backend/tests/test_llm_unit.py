@@ -19,17 +19,18 @@ from app.schemas import (
 )
 
 
-def test_llm_mock_goal_parse_catering_and_photography() -> None:
+def test_llm_mock_goal_parse_party_hats_and_balloons() -> None:
     user = json.dumps(
         {
-            "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days",
+            "raw_text": "Birthday party supplies: 10 party hats and 50 balloons, needed within 5 days",
             "currency": "USD",
         }
     )
     out = call_json("sys", user, GoalLLMOut, task="goal_parse")
-    assert [n.key for n in out.needs] == ["catering", "photography"]
-    assert out.needs[0].quantity == 100
-    assert out.deadline_days == 10
+    assert [n.key for n in out.needs] == ["party_hats", "balloons"]
+    assert [n.category for n in out.needs] == ["party_hats", "balloons"]
+    assert [n.quantity for n in out.needs] == [10, 50]
+    assert out.deadline_days == 5
     assert out.currency == "USD"
     assert out.question is None
 
@@ -52,11 +53,19 @@ def test_llm_mock_other_tasks() -> None:
 
     offer_out = call_json(
         "sys",
-        json.dumps({"provider_name": "ABC Catering", "category": "catering", "turnaround_days": 7}),
+        json.dumps(
+            {
+                "provider_name": "PartyZone Official (Flipkart)",
+                "product_title": "Pack of 10 Metallic Party Hats",
+                "packs": 2,
+                "turnaround_days": 4,
+            }
+        ),
         OfferTextLLMOut,
         task="offer_text",
     )
-    assert "ABC Catering" in offer_out.scope
+    assert "PartyZone Official (Flipkart)" in offer_out.scope
+    assert "2 x Pack of 10 Metallic Party Hats" in offer_out.scope
 
     neg_out = call_json("sys", json.dumps({"round": 2}), NegotiationTextLLMOut, task="negotiation_text")
     assert "2" in neg_out.message

@@ -77,7 +77,7 @@ def _check_verified_provider(plan: PlanDraft, providers: dict[int, ProviderOut])
     return RuleResult(
         id=RuleId.VERIFIED_PROVIDER,
         result=RuleOutcome.PASS,
-        detail="All selected providers are verified in catalogue",
+        detail="All selected sellers are verified (allowlisted store, rating and review thresholds)",
     )
 
 
@@ -127,31 +127,44 @@ def _check_no_duplicate(other_plan_statuses: list[str]) -> RuleResult:
 
 
 def _check_price_floor(plan: PlanDraft, providers: dict[int, ProviderOut]) -> RuleResult:
+    """Listing price integrity (rule id PRICE_FLOOR kept for the contract): every line must equal
+    packs * stored pack price + stored shipping, with packs >= 1 and pack price >= the listing floor.
+    Catches any tampering or drift between the plan and the persisted listing."""
     if not plan.items:
         return RuleResult(
             id=RuleId.PRICE_FLOOR,
             result=RuleOutcome.BLOCK,
-            detail="Plan has no items; cannot check provider price floors",
+            detail="Plan has no items; cannot check listing prices",
         )
     violations: list[str] = []
     for item in plan.items:
         prov = providers.get(item.provider_id)
         if prov is None:
-            violations.append(f"unknown provider id={item.provider_id} for {item.need_key}")
-        elif item.price_minor < prov.min_price_minor:
+            violations.append(f"unknown listing id={item.provider_id} for {item.need_key}")
+            continue
+        if item.packs < 1:
+            violations.append(f"{prov.name} ({item.need_key}): packs {item.packs} < 1")
+            continue
+        if prov.base_price_minor < prov.min_price_minor:
             violations.append(
-                f"{prov.name} ({item.need_key}): price {item.price_minor} < min {prov.min_price_minor}"
+                f"{prov.name} ({item.need_key}): pack price {prov.base_price_minor} < floor {prov.min_price_minor}"
+            )
+        expected = item.packs * prov.base_price_minor + prov.shipping_minor
+        if item.price_minor != expected:
+            violations.append(
+                f"{prov.name} ({item.need_key}): line price {item.price_minor} != "
+                f"{item.packs} x {prov.base_price_minor} + shipping {prov.shipping_minor} = {expected}"
             )
     if violations:
         return RuleResult(
             id=RuleId.PRICE_FLOOR,
             result=RuleOutcome.BLOCK,
-            detail="Price floor violation: " + "; ".join(violations),
+            detail="Listing price mismatch: " + "; ".join(violations),
         )
     return RuleResult(
         id=RuleId.PRICE_FLOOR,
         result=RuleOutcome.PASS,
-        detail="All item prices meet or exceed provider minimum prices",
+        detail="Every line equals packs x listing price + shipping",
     )
 
 

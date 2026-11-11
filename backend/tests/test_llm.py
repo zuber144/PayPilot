@@ -42,13 +42,13 @@ def test_llm_invalid_json_and_timeout_fallbacks(monkeypatch: pytest.MonkeyPatch)
     state = {
         "goal_id": 1,
         "raw_text": "Event",
-        "budget_minor": 5_000_000,
+        "budget_minor": 2_000,
         "currency": "USD",
-        "needs": [Need(key="catering", category="catering", quantity=100)],
+        "needs": [Need(key="party_hats", category="party_hats", quantity=10)],
         "filters": Filters().model_dump(),
         "candidates": {},
         "coverage": CoverageReport(
-            counts={"catering": 1}, required=2, sufficient=False, minimum_met=True
+            counts={"party_hats": 1}, required=2, sufficient=False, minimum_met=True
         ).model_dump(),
         "offers": [],
         "plan": None,
@@ -70,57 +70,60 @@ def test_llm_invalid_json_and_timeout_fallbacks(monkeypatch: pytest.MonkeyPatch)
     plan = PlanDraft(
         items=[
             PlanItem(
-                need_key="catering",
+                need_key="party_hats",
                 provider_id=1,
-                provider_name="ABC Catering",
-                price_minor=2_500_000,
-                timeline_days=7,
-                verified=True,
-                currency="USD",
-            ),
-            PlanItem(
-                need_key="photography",
-                provider_id=2,
-                provider_name="Studio X",
-                price_minor=1_600_000,
+                provider_name="PartyZone Official (Flipkart)",
+                price_minor=298 + 48,
                 timeline_days=4,
                 verified=True,
                 currency="USD",
+                packs=1,
+            ),
+            PlanItem(
+                need_key="balloons",
+                provider_id=2,
+                provider_name="Balloon Bazaar (Amazon)",
+                price_minor=237,
+                timeline_days=1,
+                verified=True,
+                currency="USD",
+                packs=1,
             ),
         ],
-        total_minor=4_100_000,
+        total_minor=298 + 48 + 237,
         currency="USD",
     )
     providers = {
         1: ProviderOut(
             id=1,
-            name="ABC Catering",
-            category="catering",
-            base_price_minor=2_800_000,
-            min_price_minor=2_400_000,
-            concession_rate=0.0375,
-            rating=4.6,
-            turnaround_days=7,
-            verified=True,
-            currency="USD",
-        ),
-        2: ProviderOut(
-            id=2,
-            name="Studio X",
-            category="photography",
-            base_price_minor=1_800_000,
-            min_price_minor=1_500_000,
-            concession_rate=0.0385,
-            rating=4.7,
+            name="PartyZone Official (Flipkart)",
+            category="party_hats",
+            base_price_minor=298,
+            min_price_minor=298,
+            rating=4.2,
             turnaround_days=4,
             verified=True,
             currency="USD",
+            pack_size=10,
+            shipping_minor=48,
+        ),
+        2: ProviderOut(
+            id=2,
+            name="Balloon Bazaar (Amazon)",
+            category="balloons",
+            base_price_minor=237,
+            min_price_minor=237,
+            rating=4.5,
+            turnaround_days=1,
+            verified=True,
+            currency="USD",
+            pack_size=50,
         ),
     }
-    score, flags, ai_ok = risk.assess(plan, "Corporate event", 5_000_000)
+    score, flags, ai_ok = risk.assess(plan, "Birthday party supplies", 2_000)
     assert ai_ok is False
     assert score is None
-    pol = policy.evaluate(plan, 5_000_000, "USD", providers, [])
+    pol = policy.evaluate(plan, 2_000, "USD", providers, [])
     pg = engine.combine(pol, score, flags, ai_ok)
     assert pg.verdict == Verdict.REVIEW
     assert any(r.result == RuleOutcome.REVIEW for r in pg.rules)

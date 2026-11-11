@@ -110,14 +110,20 @@ def test_router_allowed_actions_table() -> None:
     }
     assert router.allowed_actions(s4) == [Action.ASK_USER]
 
-    # 5. Offers ready (rounds < 3 vs rounds == 3)
+    # 5. Offers ready: round 0 -> mandatory comparison pass; after MAX_NEGOTIATION_ROUNDS (1) -> plan
     offer = OfferDraft(need_key="photography", provider_id=1, round=0, price_minor=1_800_000, timeline_days=4)
+    s5_first: AgentState = {
+        "needs": [_sample_need("photography")],
+        "offers": [offer],
+        "retries": {"discovery": 0, "negotiation": 0, "plan_revision": 0},
+    }
+    assert router.allowed_actions(s5_first) == [Action.NEGOTIATE]
     s5: AgentState = {
         "needs": [_sample_need("photography")],
         "offers": [offer],
         "retries": {"discovery": 0, "negotiation": 1, "plan_revision": 0},
     }
-    assert router.allowed_actions(s5) == [Action.NEGOTIATE, Action.PLAN]
+    assert router.allowed_actions(s5) == [Action.PLAN]
 
     s5_done: AgentState = {
         "needs": [_sample_need("photography")],
@@ -377,11 +383,15 @@ def test_graph_retry_and_persistence_with_mocked_agents(
             assert plans[0].payguard_result["verdict"] == Verdict.APPROVED.value
 
             offers = s.query(Offer).filter(Offer.goal_id == gid).all()
-            assert len(offers) == 8  # 2 providers * (round 0 + rounds 1..3)
+            assert len(offers) == 4  # 2 listings * (round 0 + 1 comparison pass)
             selected = [o for o in offers if o.status == OfferStatus.SELECTED.value]
             assert len(selected) == 1
             assert selected[0].provider_id == 1
-            assert selected[0].round == 3
+            assert selected[0].round == 1
+
+            actions = [e["action"] for e in saved_goal.trace]
+            assert actions.count("web_search") == 1  # searched once; retries only re-filter
+            assert actions.index("web_search") < actions.index("discover_listings")
     finally:
         eng.dispose()
 
@@ -442,88 +452,66 @@ def test_append_trace_increments_seq() -> None:
 
 
 def test_real_agents_clean_retry_blocked_review_workflows(db) -> None:  # type: ignore[no-untyped-def]
-    event_text = "Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days"
+    shopping_text = "Birthday party supplies: 10 party hats and 50 balloons, needed within 5 days"
+    budget = 2_000  # USD 20.00
 
-    # 1. Clean scenario -> PLAN_READY, ABC Catering + Studio X near 4_100_000, verdict APPROVED
-    g_clean = Goal(
-        raw_text=event_text,
-        budget_minor=5_000_000,
-        currency="USD",
-        scenario="clean",
-        status=GoalStatus.RUNNING.value,
-        trace=[],
-    )
-    db.add(g_clean)
-    db.commit()
-    graph_module.run_workflow(g_clean.id)
-    db.expire_all()
+    def run(raw_text: str, scenario: str) -> Goal:
+        g = Goal(
+            raw_text=raw_text,
+            budget_minor=budget,
+            currency="USD",
+            scenario=scenario,
+            status=GoalStatus.RUNNING.value,
+            trace=[],
+        )
+        db.add(g)
+        db.commit()
+        graph_module.run_workflow(g.id)
+        db.expire_all()
+        out = db.get(Goal, g.id)
+        assert out is not None
+        return out
 
-    g_clean_out = db.get(Goal, g_clean.id)
-    assert g_clean_out is not None
-    assert g_clean_out.status == GoalStatus.PLAN_READY.value
+    # 1. Clean -> PLAN_READY, cheapest verified listing per item (shipping included), APPROVED
+    g_clean = run(shopping_text, "clean")
+    assert g_clean.status == GoalStatus.PLAN_READY.value
+    actions = [e["action"] for e in g_clean.trace]
+    assert "web_search" in actions and "compare_prices_round_1" in actions
     plan_clean = db.query(Plan).filter(Plan.goal_id == g_clean.id).one()
     assert plan_clean.status == PlanStatus.CHECKED.value
-    assert sorted(i["provider_name"] for i in plan_clean.items) == ["ABC Catering", "Studio X"]
-    assert 4_000_000 <= plan_clean.total_minor <= 4_200_000
+    assert sorted(i["provider_name"] for i in plan_clean.items) == [
+        "Balloon Bazaar (Amazon)",
+        "PartyZone Official (Flipkart)",
+    ]
+    assert plan_clean.total_minor == 583
+    hats = next(i for i in plan_clean.items if i["need_key"] == "party_hats")
+    assert (hats["packs"], hats["pack_price_minor"], hats["shipping_minor"], hats["price_minor"]) == (1, 298, 48, 346)
+    assert hats["original_currency"] == "INR" and hats["original_price_minor"] == 29_000  # INR 250 + 40
     assert plan_clean.payguard_result is not None
     assert plan_clean.payguard_result["verdict"] == Verdict.APPROVED.value
 
-    # 2. Retry scenario -> RETRY trace event + LensCraft offered
-    g_retry = Goal(
-        raw_text=event_text,
-        budget_minor=5_000_000,
-        currency="USD",
-        scenario="retry",
-        status=GoalStatus.RUNNING.value,
-        trace=[],
-    )
-    db.add(g_retry)
-    db.commit()
-    graph_module.run_workflow(g_retry.id)
-    db.expire_all()
-
-    g_retry_out = db.get(Goal, g_retry.id)
-    assert g_retry_out is not None
-    assert g_retry_out.status == GoalStatus.PLAN_READY.value
-    retries = [e for e in g_retry_out.trace if e["status"] == TraceStatus.RETRY.value]
+    # 2. Retry -> RETRY trace event + the relaxed-filter hat listing offered
+    g_retry = run(shopping_text, "retry")
+    assert g_retry.status == GoalStatus.PLAN_READY.value
+    retries = [e for e in g_retry.trace if e["status"] == TraceStatus.RETRY.value]
     assert len(retries) >= 1
     retry_offers = db.query(Offer).filter(Offer.goal_id == g_retry.id).all()
-    lenscraft = db.query(Provider).filter(Provider.name == "LensCraft").one()
-    assert any(o.provider_id == lenscraft.id for o in retry_offers)
+    partyzone = db.query(Provider).filter(Provider.name == "PartyZone Official (Flipkart)").one()
+    assert any(o.provider_id == partyzone.id for o in retry_offers)
 
-    # 3. Blocked scenario -> VERIFIED_PROVIDER = BLOCK, verdict BLOCKED
-    g_blocked = Goal(
-        raw_text=event_text,
-        budget_minor=3_600_000,
-        currency="USD",
-        scenario="blocked",
-        status=GoalStatus.RUNNING.value,
-        trace=[],
-    )
-    db.add(g_blocked)
-    db.commit()
-    graph_module.run_workflow(g_blocked.id)
-    db.expire_all()
-
+    # 3. Blocked -> unverified sellers included by discovery; VERIFIED_PROVIDER = BLOCK, verdict BLOCKED
+    g_blocked = run(shopping_text, "blocked")
     plan_blocked = db.query(Plan).filter(Plan.goal_id == g_blocked.id).one()
     assert plan_blocked.payguard_result is not None
     assert plan_blocked.payguard_result["verdict"] == Verdict.BLOCKED.value
+    rules = {r["id"]: r["result"] for r in plan_blocked.payguard_result["rules"]}
+    assert rules[RuleId.VERIFIED_PROVIDER.value] == RuleOutcome.BLOCK.value
 
-    # 4. Review scenario -> SINGLE_VENDOR_SHARE = REVIEW, verdict REVIEW
-    g_review = Goal(
-        raw_text="Catering for 100 people for our office event",
-        budget_minor=5_000_000,
-        currency="USD",
-        scenario="review",
-        status=GoalStatus.RUNNING.value,
-        trace=[],
-    )
-    db.add(g_review)
-    db.commit()
-    graph_module.run_workflow(g_review.id)
-    db.expire_all()
-
+    # 4. Review -> single item, one seller holds 100%: SINGLE_VENDOR_SHARE = REVIEW, verdict REVIEW
+    g_review = run("Office party: 20 party hats", "review")
     plan_review = db.query(Plan).filter(Plan.goal_id == g_review.id).one()
     assert plan_review.payguard_result is not None
     assert plan_review.payguard_result["verdict"] == Verdict.REVIEW.value
-
+    (item,) = plan_review.items
+    assert item["packs"] == 2  # 20 hats / pack of 10
+    assert item["price_minor"] == 2 * 298 + 48

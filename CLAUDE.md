@@ -3,6 +3,8 @@
 Spec: `docs/PayPal_AgentOS_PayGuard_AI_Updated_Architecture.md` and
 `docs/AgentOS_PayGuard_Two_Person_Work_Division.md` (section 3 = backend). Decisions: `docs/DECISIONS.md`.
 The addendum doc is **out of scope** for this build.
+**Domain pivot (DECISIONS.md #18):** the app now compares e-commerce store listings (Amazon/Flipkart) instead of
+negotiating with service vendors. "Provider" in code = one store listing; the "negotiation" node = price comparison.
 
 ## Frozen contract (do not edit without the lead)
 `backend/app/enums.py`, `schemas.py`, `models.py`, `config.py`, `db.py`, `errors.py`.
@@ -19,7 +21,7 @@ If you need a contract change, report it to the lead instead of editing.
 5. Discovery retries relax only preference filters (`Filters`). Verification is never relaxed by the orchestrator.
 6. All loops are bounded by `config.py` limits (MAX_DISCOVERY_RETRIES, MAX_NEGOTIATION_ROUNDS,
    MAX_PLAN_REVISIONS, MAX_GRAPH_STEPS, MAX_PLAN_COMBINATIONS).
-7. Everything runs offline: `LLM_MODE=mock`, `PAYPAL_MODE=mock` are defaults. Live tests use `@pytest.mark.live`
+7. Everything runs offline: `LLM_MODE=mock`, `PAYPAL_MODE=mock`, `SEARCH_MODE=mock` are defaults. Live tests use `@pytest.mark.live`
    and are skipped without keys.
 8. No secrets in git. Never log API keys.
 9. Every non-2xx response uses `{"error": {"code", "message"}}` (raise `app.errors.ApiError`).
@@ -29,7 +31,7 @@ If you need a contract change, report it to the lead instead of editing.
 | Builder | Owns |
 |---|---|
 | A | `app/llm.py`, `app/llm_mock.py`, `app/orchestration/*` (state.py, graph.py, router.py, tools.py) |
-| B | `app/agents/*`, `backend/seed.py` |
+| B | `app/agents/*`, `app/search/*`, `backend/seed.py` |
 | C | `app/payguard/*` (policy.py, risk.py, engine.py) |
 | D | `app/payments/*`, `app/routers/*`, `app/main.py` |
 | Tester | `backend/tests/*` (except `conftest.py`, owned by the lead) |
@@ -71,19 +73,29 @@ def run(providers: list[ProviderOut], needs: list[Need], filters: Filters, *, in
     -> tuple[dict[str, list[ProviderOut]], CoverageReport]
 #   Ranked by rating desc, then price asc. Unverified dropped unless include_unverified (blocked-scenario demo only).
 #   Coverage counts only VERIFIED candidates.
-# provider_agent.py
+# provider_agent.py  (Product Extractor)
 def run(need: Need, providers: list[ProviderOut]) -> tuple[list[OfferDraft], bool]   # (round-0 offers, fallback_used)
-#   price_minor = provider.base_price_minor. LLM writes scope text only; on LLMFailure use template text.
-# negotiation_agent.py
-def run_round(offers: list[OfferDraft], providers: dict[int, ProviderOut], round_no: int) -> list[OfferDraft]
-#   counter = int(price * COUNTER_RATIO); new = max(min_price, round(price * (1 - concession_rate)));
-#   if new <= counter -> ACCEPTED at max(counter, min_price) else COUNTERED. Never below min_price_minor.
-#   Already-ACCEPTED offers carry over unchanged. Pure integer arithmetic (int/round).
+#   packs = ceil(quantity / pack_size) (None -> 1); price_minor = packs * base_price_minor + shipping_minor.
+#   LLM writes the listing summary only; on LLMFailure use template text.
+# negotiation_agent.py  (Price Comparison; node name kept)
+def run_round(offers, providers, round_no, *, allow_revision=False) -> list[OfferDraft]
+#   Re-derives each line total from the listing (prices never change), status ACCEPTED,
+#   tags BEST_PRICE / FASTEST_DELIVERY / TOP_RATED per need. Bounded by MAX_NEGOTIATION_ROUNDS (=1).
 # planning_agent.py
 def run(final_offers: list[OfferDraft], needs: list[Need], providers: dict[int, ProviderOut],
         budget_minor: int, currency: str) -> tuple[PlanDraft | None, bool]   # (plan, rationale_fallback_used)
 #   itertools.product one offer per need (cap MAX_PLAN_COMBINATIONS), drop total > budget,
 #   sort (total asc, avg rating desc, max turnaround asc). LLM writes rationale only; template on failure.
+```
+
+### `app/search/*` (B) — listings; prices parsed in code, never by the LLM
+```python
+# normalize.py: RawListing, to_usd_minor (INR paise -> USD cents, integer ceil at INR_PAISE_PER_USD),
+#   pack_size_from_title, is_verified (VERIFIED_STORES + VERIFIED_MIN_RATING + VERIFIED_MIN_REVIEWS), to_provider_fields
+# catalog.py: CATALOG (offline listings, tuned for the 4 scenarios)
+# parsers.py: pure parsers (JSON-LD, Amazon search, Flipkart search); return [] on unreadable markup
+# live.py: fetch() (HTTPS + SEARCH_ALLOWED_HOSTS on every redirect, size/time caps), search_store() -> SearchError
+# service.py: find_listings(db, needs) -> SearchOutcome  # mock: catalog rows; live: scrape+upsert, catalog fallback
 ```
 
 ### `app/payguard/*` (C)
@@ -108,7 +120,9 @@ def run_workflow(goal_id: int) -> None   # graph.py; opens its own SessionLocal;
 ```
 Persists: goal.parsed, goal.status, goal.question, trace (commit after each node so polling sees it live),
 offer rows (one per round), plan row (status CHECKED, payguard_result), offer status SELECTED for chosen offers.
-Scenario "blocked" => discovery `include_unverified=True`. Scenario "retry" => strict initial filters.
+Discovery calls `search.service.find_listings` once per goal and writes a `web_search` trace event
+(FALLBACK when the catalog was used in live mode). Scenario "blocked" => discovery `include_unverified=True`.
+Scenario "retry" => strict initial filters. PRICE_FLOOR = listing price integrity (line == packs x price + shipping).
 Router: once offers exist, at least one negotiation round is mandatory. With `retries["negotiation"] == 0`,
 `allowed_actions()` returns only `[negotiate]`; the LLM may choose `plan` only after a round has run (enforced in code).
 
@@ -125,9 +139,9 @@ Router: once offers exist, at least one negotiation round is mandatory. With `re
   all producing the envelope. CORS for FRONTEND_URL. POST /goals uses FastAPI BackgroundTasks to call `run_workflow(goal_id)`.
 
 ### `backend/seed.py` (B)
-`def seed(db: Session) -> None` — idempotent (upsert by provider name / user email), commits. `if __name__ == "__main__":`
-calls `init_engine()` then `seed()`. Six providers from work-division doc 3.7, prices in cents (USD; PayPal Sandbox rejects INR); tune
-concession rates so the clean scenario lands near USD 25,000 + 16,000 (ABC 0.0375, Studio X 0.0385 give ~24,966 / 16,000).
+`def seed(db: Session) -> None` — idempotent (upsert by `listing_key` / user email), commits. `if __name__ == "__main__":`
+calls `init_engine()` then `seed()`. Loads `app/search/catalog.py` (INR listings converted to USD cents; PayPal Sandbox
+rejects INR). Clean scenario (budget 2,000 cents): 10 hats + 50 balloons -> 346 + 237 = 583 cents.
 
 ## Commands (run from `backend/`)
 ```

@@ -60,7 +60,9 @@ settings.PAYPAL_MODE = "mock"
 settings.PAYMENTS_ENABLED = True
 
 API = "/api/v1"
-EVENT_TEXT = "Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days"
+EVENT_TEXT = "Birthday party supplies: 10 party hats and 50 balloons, needed within 5 days"
+REVIEW_TEXT = "Office party: 20 party hats"
+BUDGET = 2_000  # USD 20.00 in cents; catalog carts cost ~USD 3-7
 
 
 class Fail(Exception):
@@ -94,11 +96,11 @@ def rule(plan: dict, rid: str) -> str:
 
 
 def clean(c: TestClient) -> str:
-    goal, plan = start_goal(c, EVENT_TEXT, 5_000_000, "clean")
+    goal, plan = start_goal(c, EVENT_TEXT, BUDGET, "clean")
     check(goal["status"] == "PLAN_READY", f"goal status {goal['status']} q={goal.get('question')}")
     assert plan is not None
     check(plan["payguard"]["verdict"] == "APPROVED", f"verdict {plan['payguard']['verdict']}")
-    check(plan["total_minor"] <= 5_000_000, "over budget")
+    check(plan["total_minor"] <= BUDGET, "over budget")
     names = sorted(i["provider_name"] for i in plan["items"])
     r = c.post(f"{API}/plans/{plan['id']}/approve", json={"acknowledged_flags": []})
     check(r.status_code == 200, f"approve {r.status_code} {r.text}")
@@ -117,22 +119,22 @@ def clean(c: TestClient) -> str:
     check(final["status"] == "PAID", f"plan status {final['status']}")
     txns = c.get(f"{API}/transactions").json()
     check(len(txns) == 1, f"expected 1 transaction, got {len(txns)}")
-    return f"APPROVED and PAID, total {plan['total_minor']} cents, providers {names}"
+    return f"APPROVED and PAID, total {plan['total_minor']} cents, sellers {names}"
 
 
 def retry(c: TestClient) -> str:
-    goal, plan = start_goal(c, EVENT_TEXT, 5_000_000, "retry")
+    goal, plan = start_goal(c, EVENT_TEXT, BUDGET, "retry")
     retries = [e for e in goal["trace"] if e["status"] == "RETRY"]
     check(bool(retries), "no RETRY trace event")
     check(goal["status"] == "PLAN_READY", f"goal status {goal['status']}")
     offers = c.get(f"{API}/goals/{goal['id']}/offers").json()
     names = {o["provider_name"] for g in offers["groups"] for o in g["offers"]}
-    check("LensCraft" in names, f"LensCraft not offered: {names}")
+    check("PartyZone Official (Flipkart)" in names, f"relaxed-filter listing not offered: {names}")
     return f"{len(retries)} RETRY event(s): {retries[0]['reason']}"
 
 
 def blocked(c: TestClient) -> str:
-    goal, plan = start_goal(c, EVENT_TEXT, 3_600_000, "blocked")
+    goal, plan = start_goal(c, EVENT_TEXT, BUDGET, "blocked")
     check(plan is not None, f"no plan, goal status {goal['status']}")
     assert plan is not None
     check(plan["payguard"]["verdict"] == "BLOCKED", f"verdict {plan['payguard']['verdict']}")
@@ -148,7 +150,7 @@ def blocked(c: TestClient) -> str:
 
 
 def review(c: TestClient) -> str:
-    goal, plan = start_goal(c, "Catering for 100 people for our office event", 5_000_000, "review")
+    goal, plan = start_goal(c, REVIEW_TEXT, BUDGET, "review")
     check(plan is not None, f"no plan, goal status {goal['status']}")
     assert plan is not None
     check(plan["payguard"]["verdict"] == "REVIEW", f"verdict {plan['payguard']['verdict']}")

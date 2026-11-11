@@ -11,8 +11,8 @@ from app.orchestration import graph
 
 def _create_goal(
     db: Session,
-    raw_text: str = "Corporate event in Bangalore: catering for 100 people and a photographer",
-    budget_minor: int = 5_000_000,
+    raw_text: str = "Birthday party supplies: 10 party hats and 50 balloons, needed within 5 days",
+    budget_minor: int = 2_000,
     currency: str = "USD",
     scenario: str | None = None,
 ) -> Goal:
@@ -56,8 +56,8 @@ def test_max_discovery_retries_bounded(db: Session, monkeypatch: pytest.MonkeyPa
     The agentic loop is bounded and cannot run indefinitely (discovery retries <= MAX_DISCOVERY_RETRIES).
     """
     monkeypatch.setattr(settings, "MAX_DISCOVERY_RETRIES", 1)
-    # Remove all verified photography providers so coverage is never sufficient
-    db.query(Provider).filter(Provider.category == "photography").update({"verified": False})
+    # Remove all verified party-hat listings so coverage is never sufficient
+    db.query(Provider).filter(Provider.category == "party_hats").update({"verified": False})
     db.commit()
 
     goal = _create_goal(db, scenario=Scenario.RETRY)
@@ -71,7 +71,7 @@ def test_max_discovery_retries_bounded(db: Session, monkeypatch: pytest.MonkeyPa
         for ev in updated.trace
         if ev.get("status") == TraceStatus.RETRY and ev.get("action") == "retry_discovery"
     ]
-    assert len(retry_events) <= 1
+    assert len(retry_events) == 1  # bounded at MAX_DISCOVERY_RETRIES=1
     assert updated.status in (GoalStatus.NEEDS_INPUT, GoalStatus.FAILED)
 
 
@@ -119,19 +119,37 @@ def test_router_invalid_llm_output_falls_back(db: Session, monkeypatch: pytest.M
 
 
 def test_negotiation_is_mandatory_before_planning() -> None:
-    """With offers and no negotiation round yet, negotiate is the only allowed action."""
+    """With offers and no comparison round yet, negotiate (price comparison) is the only allowed action.
+    With the default single comparison pass, plan is the only action afterwards."""
     from app.enums import Action
     from app.orchestration import router
     from app.schemas import Need, OfferDraft
 
-    offer = OfferDraft(need_key="photography", provider_id=1, round=0, price_minor=1_800_000, timeline_days=4)
-    base = {"needs": [Need(key="photography", category="photography")], "offers": [offer]}
+    offer = OfferDraft(need_key="party_hats", provider_id=1, round=0, price_minor=346, timeline_days=4)
+    base = {"needs": [Need(key="party_hats", category="party_hats", quantity=10)], "offers": [offer]}
 
     round0 = {**base, "retries": {"discovery": 0, "negotiation": 0, "plan_revision": 0}}
     assert router.allowed_actions(round0) == [Action.NEGOTIATE]  # type: ignore[arg-type]
 
     round1 = {**base, "retries": {"discovery": 0, "negotiation": 1, "plan_revision": 0}}
-    assert router.allowed_actions(round1) == [Action.NEGOTIATE, Action.PLAN]  # type: ignore[arg-type]
+    assert settings.MAX_NEGOTIATION_ROUNDS == 1
+    assert router.allowed_actions(round1) == [Action.PLAN]  # type: ignore[arg-type]
+
+
+def test_router_allows_choice_when_more_rounds_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """If MAX_NEGOTIATION_ROUNDS > 1, the LLM may choose negotiate or plan after the mandatory round."""
+    from app.enums import Action
+    from app.orchestration import router
+    from app.schemas import Need, OfferDraft
+
+    monkeypatch.setattr(settings, "MAX_NEGOTIATION_ROUNDS", 3)
+    offer = OfferDraft(need_key="party_hats", provider_id=1, round=1, price_minor=346, timeline_days=4)
+    state = {
+        "needs": [Need(key="party_hats", category="party_hats")],
+        "offers": [offer],
+        "retries": {"discovery": 0, "negotiation": 1, "plan_revision": 0},
+    }
+    assert router.allowed_actions(state) == [Action.NEGOTIATE, Action.PLAN]  # type: ignore[arg-type]
 
 
 def test_negotiation_disabled_by_config_goes_straight_to_plan(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -141,22 +159,22 @@ def test_negotiation_disabled_by_config_goes_straight_to_plan(monkeypatch: pytes
     from app.schemas import Need, OfferDraft
 
     monkeypatch.setattr(settings, "MAX_NEGOTIATION_ROUNDS", 0)
-    offer = OfferDraft(need_key="photography", provider_id=1, round=0, price_minor=1_800_000, timeline_days=4)
+    offer = OfferDraft(need_key="party_hats", provider_id=1, round=0, price_minor=346, timeline_days=4)
     state = {
-        "needs": [Need(key="photography", category="photography")],
+        "needs": [Need(key="party_hats", category="party_hats")],
         "offers": [offer],
         "retries": {"discovery": 0, "negotiation": 0, "plan_revision": 0},
     }
     assert router.allowed_actions(state) == [Action.PLAN]  # type: ignore[arg-type]
 
 
-def test_router_llm_preferring_plan_still_negotiates_below_list_price(
+def test_router_llm_preferring_plan_still_runs_comparison_round(
     db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Regression: the live router LLM skipped negotiation and paid list price.
+    """Regression (DECISIONS #17): the live router LLM once skipped the negotiation node.
 
-    A router that always picks 'plan' when allowed must still get at least one negotiation round,
-    so the clean plan total lands below the providers' base (list) prices.
+    A router that always picks 'plan' when allowed must still get the mandatory price-comparison
+    pass, and every cart line must equal packs x listing price + shipping (prices never change).
     """
     import json
 
@@ -185,10 +203,12 @@ def test_router_llm_preferring_plan_still_negotiates_below_list_price(
     assert updated.status == GoalStatus.PLAN_READY
     assert ["negotiate"] in allowed_seen, allowed_seen
     negotiation_events = [ev for ev in updated.trace if ev.get("node") == TraceNode.NEGOTIATION]
-    assert len(negotiation_events) >= 1
+    assert [ev["action"] for ev in negotiation_events] == ["compare_prices_round_1"]
     assert not [ev for ev in updated.trace if ev.get("status") == TraceStatus.FALLBACK]
 
     plan = db.query(Plan).filter(Plan.goal_id == goal.id).one()
-    by_name = {p.name: p.base_price_minor for p in db.query(Provider).all()}
-    list_total = sum(by_name[item["provider_name"]] for item in plan.items)
-    assert plan.total_minor < list_total, (plan.total_minor, list_total)
+    by_id = {p.id: p for p in db.query(Provider).all()}
+    for item in plan.items:
+        listing = by_id[item["provider_id"]]
+        assert item["price_minor"] == item["packs"] * listing.base_price_minor + listing.shipping_minor
+    assert plan.total_minor == sum(item["price_minor"] for item in plan.items) == 583

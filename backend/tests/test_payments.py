@@ -11,8 +11,8 @@ def _create_clean_plan(client: TestClient) -> dict:
     resp = client.post(
         "/api/v1/goals",
         json={
-            "raw_text": "Corporate event in Bangalore: catering for 100 people and a photographer",
-            "budget_minor": 5_000_000,
+            "raw_text": "Birthday party supplies: 10 party hats and 50 balloons, needed within 5 days",
+            "budget_minor": 2_000,
             "currency": "USD",
             "scenario": "clean",
         },

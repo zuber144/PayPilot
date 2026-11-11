@@ -21,7 +21,7 @@ from app.enums import (
     TraceNode,
     TraceStatus,
 )
-from app.models import Goal, Offer, Plan, Provider
+from app.models import Goal, Offer, Plan
 from app.orchestration import router
 from app.orchestration.state import AgentState, append_trace, get_filters, make_initial_state
 from app.schemas import (
@@ -31,8 +31,8 @@ from app.schemas import (
     OfferDraft,
     PayGuardResult,
     PlanDraft,
-    ProviderOut,
 )
+from app.search import service as search_service
 
 # Module-level placeholders so unit tests can import and monkeypatch `graph.<agent>` even before
 # sibling packages are imported, while resolving live modules from `app.agents` / `app.payguard`.
@@ -112,6 +112,24 @@ def _check_step_limit(db: Session | None, state: AgentState, node: TraceNode) ->
     return False
 
 
+def _offer_row(goal_id: int, off: OfferDraft) -> Offer:
+    return Offer(
+        goal_id=goal_id,
+        provider_id=off.provider_id,
+        need_key=off.need_key,
+        round=off.round,
+        price_minor=off.price_minor,
+        counter_minor=off.counter_minor,
+        scope=off.scope,
+        timeline_days=off.timeline_days,
+        status=off.status.value if isinstance(off.status, OfferStatus) else str(off.status),
+        quantity=off.quantity,
+        packs=off.packs,
+        shipping_minor=off.shipping_minor,
+        tags=list(off.tags),
+    )
+
+
 def make_nodes(db: Session | None = None) -> dict[str, Any]:
     """Build node callables bound to optional SQLAlchemy session `db`."""
 
@@ -142,7 +160,7 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
         needs_list: list[Need] = list(parsed.needs) if parsed and getattr(parsed, "needs", None) else []
 
         if parsed is None or not needs_list:
-            q = question or "Please clarify which services and quantities you need."
+            q = question or "Please list the products and quantities you want to buy."
             state["needs"] = []
             state["question"] = q
             state["stage"] = "goal_parsed"
@@ -201,9 +219,31 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
 
         providers_by_id = dict(state.get("providers_by_id") or {})
         if not providers_by_id and db is not None:
-            rows = db.query(Provider).order_by(Provider.id).all()
-            providers_by_id = {r.id: ProviderOut.model_validate(r) for r in rows}
+            # Search runs once per goal; discovery retries only re-filter the same listings.
+            outcome = search_service.find_listings(db, list(state.get("needs", [])))
+            providers_by_id = {p.id: p for p in outcome.listings}
             state["providers_by_id"] = providers_by_id
+            append_trace(
+                state,
+                node=TraceNode.DISCOVERY,
+                action="web_search",
+                status=TraceStatus.FALLBACK if outcome.fallbacks else TraceStatus.OK,
+                summary=(
+                    f"Found {len(outcome.listings)} store listing(s) "
+                    f"({'live store search' if outcome.mode == 'live' else 'offline catalog'})"
+                ),
+                reason="; ".join(outcome.fallbacks)[:1000] if outcome.fallbacks else (
+                    "Searched allowlisted stores and parsed listings in code."
+                    if outcome.mode == "live"
+                    else "SEARCH_MODE=mock: used the offline product catalog."
+                ),
+                duration_ms=_elapsed_ms(t0),
+                data={
+                    "mode": outcome.mode,
+                    "live_counts": outcome.live_counts,
+                    "fallbacks": outcome.fallbacks[:20],
+                },
+            )
 
         provider_list = list(providers_by_id.values())
         filters = get_filters(state)
@@ -223,13 +263,13 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
         append_trace(
             state,
             node=TraceNode.DISCOVERY,
-            action="discover_providers",
+            action="discover_listings",
             status=TraceStatus.OK,
             summary=(
                 f"Verified coverage {coverage.counts} "
                 f"({'sufficient' if coverage.sufficient else 'insufficient'}, required {coverage.required})"
             ),
-            reason="Filtered and ranked providers by verification, rating, turnaround and price.",
+            reason="Filtered and ranked listings by seller verification, rating, delivery days and price.",
             duration_ms=duration,
             data={
                 "counts": coverage.counts,
@@ -264,19 +304,7 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
 
         if db is not None:
             for off in opening_offers:
-                db.add(
-                    Offer(
-                        goal_id=state["goal_id"],
-                        provider_id=off.provider_id,
-                        need_key=off.need_key,
-                        round=off.round,
-                        price_minor=off.price_minor,
-                        counter_minor=off.counter_minor,
-                        scope=off.scope,
-                        timeline_days=off.timeline_days,
-                        status=off.status.value if isinstance(off.status, OfferStatus) else str(off.status),
-                    )
-                )
+                db.add(_offer_row(state["goal_id"], off))
 
         duration = _elapsed_ms(t0)
         append_trace(
@@ -284,11 +312,11 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
             node=TraceNode.PROVIDER,
             action="create_offers",
             status=TraceStatus.FALLBACK if any_fallback else TraceStatus.OK,
-            summary=f"Created {len(opening_offers)} opening offer(s)",
+            summary=f"Extracted {len(opening_offers)} product offer(s)",
             reason=(
-                "Used deterministic fallback scope text for one or more offers."
+                "Used deterministic fallback summary text for one or more listings."
                 if any_fallback
-                else "Generated opening offers using provider base prices."
+                else "Computed packs and line totals (incl. shipping) from listing prices."
             ),
             duration_ms=duration,
             data={"offers_count": len(opening_offers), "fallback": any_fallback},
@@ -335,32 +363,21 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
 
         if db is not None:
             for off in updated_offers:
-                db.add(
-                    Offer(
-                        goal_id=state["goal_id"],
-                        provider_id=off.provider_id,
-                        need_key=off.need_key,
-                        round=off.round,
-                        price_minor=off.price_minor,
-                        counter_minor=off.counter_minor,
-                        scope=off.scope,
-                        timeline_days=off.timeline_days,
-                        status=off.status.value if isinstance(off.status, OfferStatus) else str(off.status),
-                    )
-                )
+                db.add(_offer_row(state["goal_id"], off))
 
         duration = _elapsed_ms(t0)
         append_trace(
             state,
             node=TraceNode.NEGOTIATION,
-            action=f"negotiate_round_{round_no}",
+            action=f"compare_prices_round_{round_no}",
             status=TraceStatus.OK,
-            summary=f"Completed negotiation round {round_no} across {len(updated_offers)} offer(s)",
-            reason="Applied bounded counter-offer and provider concession rules.",
+            summary=f"Compared {len(updated_offers)} listing(s) (pass {round_no})",
+            reason="Re-derived line totals incl. shipping and tagged BEST_PRICE / FASTEST_DELIVERY / TOP_RATED.",
             duration_ms=duration,
             data={
                 "round": round_no,
                 "prices": {f"{o.need_key}:{o.provider_id}": o.price_minor for o in updated_offers},
+                "tags": {f"{o.need_key}:{o.provider_id}": o.tags for o in updated_offers if o.tags},
             },
         )
         _persist_goal_progress(db, state)
@@ -552,11 +569,7 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
             counts = cov.counts if isinstance(cov, CoverageReport) else {}
             required = cov.required if isinstance(cov, CoverageReport) else settings.REQUIRED_COVERAGE
             deficient = [k for k, v in counts.items() if v < required]
-            target_need = (
-                "photography"
-                if "photography" in deficient
-                else (deficient[0] if deficient else (state["needs"][0].key if state.get("needs") else "need"))
-            )
+            target_need = deficient[0] if deficient else (state["needs"][0].key if state.get("needs") else "need")
             retry_reason = (
                 f"Coverage < {required} for need '{target_need}'; "
                 f"retry {attempt} of {settings.MAX_DISCOVERY_RETRIES}"
@@ -605,7 +618,7 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
                 node=TraceNode.ORCHESTRATOR,
                 action=Action.REVISE_PLAN.value,
                 status=TraceStatus.FALLBACK if fallback_used else TraceStatus.RETRY,
-                summary=f"Revising plan via extra negotiation round ({rev}/{settings.MAX_PLAN_REVISIONS})",
+                summary=f"Revising cart via extra comparison pass ({rev}/{settings.MAX_PLAN_REVISIONS})",
                 reason=reason or f"No plan within budget; revision {rev} of {settings.MAX_PLAN_REVISIONS}",
                 duration_ms=duration,
                 data={"revision": rev, "allowed": [a.value for a in allowed], "fallback": fallback_used},
@@ -615,7 +628,7 @@ def make_nodes(db: Session | None = None) -> dict[str, Any]:
 
         if action == Action.ASK_USER:
             q = state.get("question") or (
-                "We could not find enough verified providers or a plan within your budget. "
+                "We could not find enough verified store listings or a cart within your budget. "
                 "Could you adjust your goal or budget?"
             )
             state["question"] = q

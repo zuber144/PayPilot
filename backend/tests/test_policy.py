@@ -11,8 +11,8 @@ def _providers() -> dict[int, ProviderOut]:
             id=1,
             name="ABC Catering",
             category="catering",
-            base_price_minor=2_800_000,
-            min_price_minor=2_400_000,
+            base_price_minor=2_500_000,
+            min_price_minor=2_500_000,
             concession_rate=0.0375,
             rating=4.6,
             turnaround_days=7,
@@ -23,8 +23,8 @@ def _providers() -> dict[int, ProviderOut]:
             id=2,
             name="Studio X",
             category="photography",
-            base_price_minor=1_800_000,
-            min_price_minor=1_500_000,
+            base_price_minor=1_600_000,
+            min_price_minor=1_600_000,
             concession_rate=0.0385,
             rating=4.7,
             turnaround_days=4,
@@ -35,7 +35,7 @@ def _providers() -> dict[int, ProviderOut]:
             id=3,
             name="PixelNest",
             category="photography",
-            base_price_minor=1_400_000,
+            base_price_minor=1_200_000,
             min_price_minor=1_200_000,
             concession_rate=0.04,
             rating=4.5,
@@ -84,7 +84,7 @@ def test_verified_provider_failure_blocks() -> None:
                 need_key="catering",
                 provider_id=1,
                 provider_name="ABC Catering",
-                price_minor=2_400_000,
+                price_minor=2_500_000,
                 timeline_days=7,
                 verified=True,
                 currency="USD",
@@ -99,7 +99,7 @@ def test_verified_provider_failure_blocks() -> None:
                 currency="USD",
             ),
         ],
-        total_minor=3_600_000,
+        total_minor=3_700_000,
         currency="USD",
     )
     results = policy.evaluate(plan, 5_000_000, "USD", _providers(), [])
@@ -118,11 +118,11 @@ def test_over_budget_plan_blocks() -> None:
 
 
 def test_price_below_provider_min_blocks() -> None:
-    """Section 15 #5: Price below provider minimum —
-    PRICE_FLOOR blocks a plan where an item price is below the provider's min_price_minor.
+    """Section 15 #5: Price below listing price —
+    PRICE_FLOOR (listing price integrity) blocks a line priced below packs x listing price + shipping.
     """
     plan = _clean_plan()
-    plan.items[0].price_minor = 2_000_000  # below ABC Catering min 2,400,000
+    plan.items[0].price_minor = 2_000_000  # listing price is 2,500,000 for 1 pack, no shipping
     plan.total_minor = 3_600_000
     results = policy.evaluate(plan, 5_000_000, "USD", _providers(), [])
     by_id = {r.id: r.result for r in results}
@@ -177,3 +177,28 @@ def test_single_vendor_share_review() -> None:
     results = policy.evaluate(plan, 5_000_000, "USD", _providers(), [])
     by_id = {r.id: r.result for r in results}
     assert by_id[RuleId.SINGLE_VENDOR_SHARE] == RuleOutcome.REVIEW
+
+
+def test_tampered_line_price_blocks_price_floor() -> None:
+    """Listing price integrity: a line price above or below packs x pack price + shipping BLOCKs."""
+    provs = _providers()
+    provs[1] = provs[1].model_copy(update={"base_price_minor": 1_000_000, "min_price_minor": 1_000_000,
+                                            "shipping_minor": 500_000})
+    plan = _clean_plan()
+    plan.items[0].packs = 2  # expected line = 2 x 1,000,000 + 500,000 = 2,500,000
+    assert {r.id: r.result for r in policy.evaluate(plan, 5_000_000, "USD", provs, [])}[
+        RuleId.PRICE_FLOOR
+    ] == RuleOutcome.PASS
+
+    plan.items[0].price_minor = 2_600_000  # inflated
+    plan.total_minor = 4_200_000
+    assert {r.id: r.result for r in policy.evaluate(plan, 5_000_000, "USD", provs, [])}[
+        RuleId.PRICE_FLOOR
+    ] == RuleOutcome.BLOCK
+
+    plan.items[0].price_minor = 2_500_000
+    plan.items[0].packs = 0  # zero packs never valid
+    plan.total_minor = 4_100_000
+    assert {r.id: r.result for r in policy.evaluate(plan, 5_000_000, "USD", provs, [])}[
+        RuleId.PRICE_FLOOR
+    ] == RuleOutcome.BLOCK

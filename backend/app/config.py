@@ -34,14 +34,36 @@ class Settings(BaseSettings):
     PAYPAL_TIMEOUT_SECONDS: float = 20.0
     PAYMENTS_ENABLED: bool = True  # kill switch checked by /pay and /capture
 
+    # Product search. "mock" (default) reads the seeded offline catalog and never touches the
+    # network; "live" scrapes the allowlisted store search pages and falls back to the catalog
+    # (FALLBACK trace) on any fetch/parse failure. Prices are parsed in code, never by the LLM.
+    SEARCH_MODE: Literal["mock", "live"] = "mock"
+    SEARCH_STORES: list[str] = ["amazon", "flipkart"]
+    SEARCH_ALLOWED_HOSTS: list[str] = ["www.amazon.in", "amazon.in", "www.flipkart.com", "flipkart.com"]
+    SEARCH_TIMEOUT_SECONDS: float = 10.0
+    SEARCH_MAX_BYTES: int = 3_000_000  # response size cap per page
+    SEARCH_MAX_REDIRECTS: int = 3  # every hop must stay on SEARCH_ALLOWED_HOSTS
+    SEARCH_USER_AGENT: str = "AgentOS-PriceCompare/1.0"  # generic; never contains user details
+    MAX_LISTINGS_PER_STORE: int = 5  # per need, per store
+    SEARCH_DEFAULT_DELIVERY_DAYS: int = 5  # when a page shows no parseable delivery date
+
+    # Display currency vs charge currency. Listings are priced in INR (paise); every pack price and
+    # shipping fee is converted to USD cents once, at ingest, with integer ceil division.
+    DISPLAY_CURRENCY: str = "INR"
+    INR_PAISE_PER_USD: int = 8_400  # fixed demo rate INR 84.00 = USD 1.00 (no live FX call)
+
+    # Seller verification (derived in code, never relaxed by the orchestrator)
+    VERIFIED_STORES: list[str] = ["amazon", "flipkart"]
+    VERIFIED_MIN_RATING: float = 4.0
+    VERIFIED_MIN_REVIEWS: int = 50
+
     # Orchestration limits (work-division doc 3.3)
     MAX_DISCOVERY_RETRIES: int = 2
-    MAX_NEGOTIATION_ROUNDS: int = 3
+    MAX_NEGOTIATION_ROUNDS: int = 1  # price-comparison passes (store prices are fixed)
     MAX_PLAN_REVISIONS: int = 1
     MAX_GRAPH_STEPS: int = 25
     REQUIRED_COVERAGE: int = 2  # verified candidates wanted per need
     MIN_COVERAGE: int = 1  # continue_with_minimum allowed only if every need has >= this
-    COUNTER_RATIO: float = 0.90  # our counter = 90% of current price
     MAX_PLAN_COMBINATIONS: int = 10_000  # cap for itertools.product enumeration
 
     # PayGuard thresholds (work-division doc 3.5)
