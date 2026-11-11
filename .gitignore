@@ -48,3 +48,10 @@ Thumbs.db
 
 # Docker volumes
 pgdata/
+
+# Python tool caches
+.mypy_cache/
+.ruff_cache/
+
+# Local portable PostgreSQL install + data (never commit)
+.pg/
