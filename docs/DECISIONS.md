@@ -109,3 +109,7 @@ contract and all earlier tests are unchanged. What was added:
    - Left as conflicts (the frontend must adapt): goal status names (PLAN_READY vs PLANNED), plan status names
      (USER_APPROVED vs APPROVED), the `POST /plans/{id}/payguard` response, the offers path, and trace `status`
      values. Tests: `tests/test_legacy_compat.py`.
+20. **Single backend location: `agentos/backend/` (lead decision, 2026-11-11, local branch)** — the working backend
+moved from the repo root `backend/` to `agentos/backend/`, next to `agentos/frontend/`, so the repo has exactly one
+backend. Earlier entries that say `backend/...` now mean `agentos/backend/...`. Run all commands from
+`agentos/backend/`.

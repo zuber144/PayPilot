@@ -26,11 +26,10 @@ Postgres will be available at `localhost:5432`.
 
 ### 2. Backend Setup
 
-The backend lives in the repository-root `backend/` folder (not under `agentos/`).
-Full instructions are in the root [`README.md`](../README.md).
+The backend lives in `agentos/backend/`. Full instructions are in the root [`README.md`](../README.md).
 
 ```bash
-cd backend
+cd agentos/backend
 
 # Create virtualenv and install dependencies (Python 3.11)
 python -m venv .venv
@@ -77,7 +76,7 @@ Frontend available at: http://localhost:5173
 ### 4. Run Tests
 
 ```bash
-cd backend
+cd agentos/backend
 python -m pytest -q
 python scripts/run_scenarios.py
 ```
@@ -96,7 +95,7 @@ python scripts/run_scenarios.py
 2. App name: `PayPilot-Dev`
 3. App type: **Merchant**
 4. Environment: **Sandbox**
-5. Copy **Client ID** and **Client Secret** to `backend/.env` (repository root) and set `PAYPAL_MODE=sandbox`
+5. Copy **Client ID** and **Client Secret** to `agentos/backend/.env` and set `PAYPAL_MODE=sandbox`
 
 ### Create Sandbox Accounts
 1. Go to **Sandbox > Accounts**
@@ -183,7 +182,7 @@ POST /payments/capture  (called from PaymentReturnPage)
 
 ### Backend (`backend/.env`)
 
-See [`backend/.env.example`](../backend/.env.example) for the full, commented list. Defaults run fully offline
+See [`backend/.env.example`](backend/.env.example) for the full, commented list. Defaults run fully offline
 (`LLM_MODE=mock`, `PAYPAL_MODE=mock`, `SEARCH_MODE=mock`, SQLite). For live use set `LLM_MODE=live` with
 `ANTHROPIC_API_KEY`, and `PAYPAL_MODE=sandbox` with `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET`.
 

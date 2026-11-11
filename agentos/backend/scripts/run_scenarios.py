@@ -1,6 +1,6 @@
 """Drive the four demo scenarios through the HTTP API with LLM and PayPal mocked.
 
-Usage (from backend/):  .venv\\Scripts\\python scripts\\run_scenarios.py
+Usage (from agentos/backend/):  .venv\\Scripts\\python scripts\\run_scenarios.py
 Exit code 0 only if all four scenarios pass.
 """
 

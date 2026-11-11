@@ -7,7 +7,7 @@ The addendum doc is **out of scope** for this build.
 negotiating with service vendors. "Provider" in code = one store listing; the "negotiation" node = price comparison.
 
 ## Frozen contract (do not edit without the lead)
-`backend/app/enums.py`, `schemas.py`, `models.py`, `config.py`, `db.py`, `errors.py`.
+`agentos/backend/app/enums.py`, `schemas.py`, `models.py`, `config.py`, `db.py`, `errors.py`.
 If you need a contract change, report it to the lead instead of editing.
 
 ## Hard rules
@@ -31,10 +31,10 @@ If you need a contract change, report it to the lead instead of editing.
 | Builder | Owns |
 |---|---|
 | A | `app/llm.py`, `app/llm_mock.py`, `app/orchestration/*` (state.py, graph.py, router.py, tools.py) |
-| B | `app/agents/*`, `app/search/*`, `backend/seed.py` |
+| B | `app/agents/*`, `app/search/*`, `agentos/backend/seed.py` |
 | C | `app/payguard/*` (policy.py, risk.py, engine.py) |
 | D | `app/payments/*`, `app/routers/*`, `app/main.py` |
-| Tester | `backend/tests/*` (except `conftest.py`, owned by the lead) |
+| Tester | `agentos/backend/tests/*` (except `conftest.py`, owned by the lead) |
 | Lead | contract files, `CLAUDE.md`, `docs/*`, `scripts/*`, `conftest.py` |
 
 ## Module interfaces (everyone codes against these)
@@ -138,12 +138,12 @@ Router: once offers exist, at least one negotiation round is mandatory. With `re
   RequestValidationError (-> VALIDATION_ERROR 422), HTTPException (404 -> NOT_FOUND) and Exception (-> INTERNAL_ERROR 500),
   all producing the envelope. CORS for FRONTEND_URL. POST /goals uses FastAPI BackgroundTasks to call `run_workflow(goal_id)`.
 
-### `backend/seed.py` (B)
+### `agentos/backend/seed.py` (B)
 `def seed(db: Session) -> None` — idempotent (upsert by `listing_key` / user email), commits. `if __name__ == "__main__":`
 calls `init_engine()` then `seed()`. Loads `app/search/catalog.py` (INR listings converted to USD cents; PayPal Sandbox
 rejects INR). Clean scenario (budget 2,000 cents): 10 hats + 50 balloons -> 346 + 237 = 583 cents.
 
-## Commands (run from `backend/`)
+## Commands (run from `agentos/backend/`)
 ```
 .venv\Scripts\python -m ruff check .
 .venv\Scripts\python -m mypy app

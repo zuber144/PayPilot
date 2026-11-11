@@ -7,14 +7,14 @@ The agents turn a shopping request ("10 party hats and 50 balloons") into a shop
 FASTEST_DELIVERY / TOP_RATED), build the cheapest cart within budget, run PayGuard and check out with PayPal.
 Prices are shown in INR and charged in USD at a fixed demo rate. See `docs/DECISIONS.md` #18.
 
-> Upgrading an existing checkout: the listing columns changed, so delete `backend/agentos.db` (or drop the Postgres
+> Upgrading an existing checkout: the listing columns changed, so delete `agentos/backend/agentos.db` (or drop the Postgres
 > schema) and re-run `seed.py`.
 
 ## Run the backend
 
 ### 1. Environment & dependencies
 
-From `backend/`:
+From `agentos/backend/`:
 
 ```powershell
 # Create virtual environment (Python 3.11) and install dependencies
@@ -32,10 +32,10 @@ To use PostgreSQL 16 via Docker Compose instead of SQLite:
 ```powershell
 # From repository root
 docker compose up -d
-# Then set DATABASE_URL=postgresql+psycopg://agentos:agentos@localhost:5432/agentos in backend/.env
+# Then set DATABASE_URL=postgresql+psycopg://agentos:agentos@localhost:5432/agentos in agentos/backend/.env
 ```
 
-To use the live LLM and PayPal Sandbox, set these in `backend/.env`:
+To use the live LLM and PayPal Sandbox, set these in `agentos/backend/.env`:
 - `LLM_MODE=live` with `LLM_PROVIDER=anthropic` (default model `claude-haiku-5-5`; the key comes from `ANTHROPIC_API_KEY` in `.env` or your shell). `LLM_PROVIDER=openai` with `OPENAI_API_KEY` is still supported. The provider in use is logged at startup.
 - `PAYPAL_MODE=sandbox` with `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` from a **US** Sandbox app. The demo is USD-only because PayPal Sandbox rejects INR. Approve payments with a US *personal* Sandbox account.
 
@@ -47,7 +47,7 @@ To drive the 4 scenarios against a running server (for example on Postgres), sta
 
 ### 2. Seed the database & start FastAPI
 
-From `backend/`:
+From `agentos/backend/`:
 
 ```powershell
 .venv\Scripts\python seed.py
@@ -59,7 +59,7 @@ From `backend/`:
 
 ### 3. Run lint, typecheck, tests & demo scenarios
 
-From `backend/`:
+From `agentos/backend/`:
 
 ```powershell
 .venv\Scripts\python -m ruff check .
