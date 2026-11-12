@@ -15,14 +15,22 @@ class Settings(BaseSettings):
 
     # LLM. "mock" (default) never touches the network; "live" requires the selected
     # provider's API key (falls back to mock if it is missing).
+    # Groq (groq.com) is primary; OpenAI is secondary / fallback.
     LLM_MODE: Literal["mock", "live"] = "mock"
-    LLM_PROVIDER: Literal["anthropic", "openai"] = "anthropic"
+    LLM_PROVIDER: Literal["groq", "grok", "openai", "anthropic"] = "groq"
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
+    GROK_API_KEY: str = ""
+    XAI_API_KEY: str = ""
+    GROK_MODEL: str = "grok-2-latest"
+    GROK_BASE_URL: str = "https://api.x.ai/v1"
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-haiku-5-5"
     ANTHROPIC_EFFORT: Literal["low", "medium", "high"] = "low"
     ANTHROPIC_MAX_TOKENS: int = 4096
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"
     LLM_TIMEOUT_SECONDS: float = 20.0
     LLM_RETRIES: int = 1
 

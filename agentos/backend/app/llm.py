@@ -1,8 +1,8 @@
 """Single gateway to the LLM (`call_json`).
 
-Supports deterministic offline mock mode (`LLM_MODE=mock` or missing API key) and two live providers
-(`LLM_PROVIDER`): Anthropic (default, structured outputs constrained to the task's Pydantic schema) and
-OpenAI JSON mode. Timeout, bounded retry on invalid JSON / schema validation error, and safe failure via
+Supports deterministic offline mock mode (`LLM_MODE=mock` or missing API key) and live providers
+(`LLM_PROVIDER`): Grok (xAI, primary default via OpenAI-compatible endpoint), OpenAI (secondary fallback),
+and Anthropic. Timeout, bounded retry on invalid JSON / schema validation error, and safe failure via
 `LLMFailure`. Never logs the API key.
 """
 
@@ -32,27 +32,91 @@ class LLMFailure(Exception):
 
 
 def _provider_key() -> str:
-    return settings.ANTHROPIC_API_KEY if settings.LLM_PROVIDER == "anthropic" else settings.OPENAI_API_KEY
+    if settings.LLM_PROVIDER in ("groq", "grok"):
+        return settings.GROQ_API_KEY or settings.GROK_API_KEY or settings.XAI_API_KEY or settings.OPENAI_API_KEY
+    if settings.LLM_PROVIDER == "openai":
+        return settings.OPENAI_API_KEY
+    return settings.ANTHROPIC_API_KEY
 
 
 def active_provider() -> str:
     """Human-readable description of what call_json will use. Never includes the key."""
     if settings.LLM_MODE == "mock":
         return "mock (LLM_MODE=mock)"
-    if not _provider_key():
-        return f"mock (LLM_MODE=live but no API key for provider '{settings.LLM_PROVIDER}')"
+    if settings.LLM_PROVIDER in ("groq", "grok"):
+        groq_key = settings.GROQ_API_KEY or settings.GROK_API_KEY or settings.XAI_API_KEY
+        if groq_key:
+            model = settings.GROQ_MODEL if settings.GROQ_API_KEY or settings.LLM_PROVIDER == "groq" else settings.GROK_MODEL
+            return f"groq:{model}"
+        if settings.OPENAI_API_KEY:
+            return f"openai:{settings.OPENAI_MODEL} (secondary fallback from groq)"
+        return "mock (LLM_MODE=live but no API key for groq or openai)"
+    if settings.LLM_PROVIDER == "openai":
+        if settings.OPENAI_API_KEY:
+            return f"openai:{settings.OPENAI_MODEL}"
+        return "mock (LLM_MODE=live but no API key for openai)"
     if settings.LLM_PROVIDER == "anthropic":
-        return f"anthropic:{settings.ANTHROPIC_MODEL} (effort={settings.ANTHROPIC_EFFORT})"
-    return f"openai:{settings.OPENAI_MODEL}"
+        if settings.ANTHROPIC_API_KEY:
+            return f"anthropic:{settings.ANTHROPIC_MODEL} (effort={settings.ANTHROPIC_EFFORT})"
+        return "mock (LLM_MODE=live but no API key for anthropic)"
+    return f"unknown:{settings.LLM_PROVIDER}"
 
 
 def _raw_completion(system: str, user: str, task: str) -> str:
     """Raw string completion transport. Monkeypatchable in tests across both mock and live modes."""
     if settings.LLM_MODE == "mock" or not _provider_key():
         return json.dumps(llm_mock.respond(task, system, user))
-    if settings.LLM_PROVIDER == "anthropic":
+    if settings.LLM_PROVIDER in ("groq", "grok"):
+        key = settings.GROQ_API_KEY or settings.GROK_API_KEY or settings.XAI_API_KEY
+        if key:
+            try:
+                return _groq_completion(system, user)
+            except Exception:
+                # Primary (Groq) failed: fall back to secondary (OpenAI) if key available
+                if settings.OPENAI_API_KEY:
+                    return _openai_completion(system, user)
+                raise
+        elif settings.OPENAI_API_KEY:
+            return _openai_completion(system, user)
+    elif settings.LLM_PROVIDER == "openai":
+        return _openai_completion(system, user)
+    elif settings.LLM_PROVIDER == "anthropic":
         return _anthropic_completion(system, user, _current_schema.get())
-    return _openai_completion(system, user)
+    return json.dumps(llm_mock.respond(task, system, user))
+
+
+def _groq_completion(system: str, user: str) -> str:
+    import httpx
+
+    key = settings.GROQ_API_KEY or settings.GROK_API_KEY or settings.XAI_API_KEY
+    base_url = settings.GROQ_BASE_URL if settings.GROQ_API_KEY or settings.LLM_PROVIDER == "groq" else settings.GROK_BASE_URL
+    model = settings.GROQ_MODEL if settings.GROQ_API_KEY or settings.LLM_PROVIDER == "groq" else settings.GROK_MODEL
+    url = f"{base_url.rstrip('/')}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": system + "\n\nRespond with a single valid JSON object only."},
+            {"role": "user", "content": user},
+        ],
+        "temperature": 0,
+    }
+    with httpx.Client(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
+        resp = client.post(url, headers=headers, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data.get("choices", [{}])[0].get("message", {}).get("content")
+        if not content:
+            raise ValueError("Empty completion content from Groq")
+        return content
+
+
+# Alias for backward compatibility
+_grok_completion = _groq_completion
 
 
 def _anthropic_completion(system: str, user: str, schema_model: type[BaseModel] | None) -> str:
@@ -83,26 +147,30 @@ def _anthropic_completion(system: str, user: str, schema_model: type[BaseModel] 
 
 
 def _openai_completion(system: str, user: str) -> str:
-    from openai import OpenAI
+    import httpx
 
-    client = OpenAI(
-        api_key=settings.OPENAI_API_KEY,
-        timeout=settings.LLM_TIMEOUT_SECONDS,
-        max_retries=0,
-    )
-    response = client.chat.completions.create(
-        model=settings.OPENAI_MODEL,
-        response_format={"type": "json_object"},
-        messages=[
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": settings.OPENAI_MODEL,
+        "response_format": {"type": "json_object"},
+        "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        temperature=0,
-    )
-    content = response.choices[0].message.content if response.choices else None
-    if not content:
-        raise ValueError("Empty completion content from OpenAI")
-    return content
+        "temperature": 0,
+    }
+    with httpx.Client(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
+        resp = client.post(url, headers=headers, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data.get("choices", [{}])[0].get("message", {}).get("content")
+        if not content:
+            raise ValueError("Empty completion content from OpenAI")
+        return content
 
 
 def call_json(system: str, user: str, schema_model: type[T], *, task: str) -> T:

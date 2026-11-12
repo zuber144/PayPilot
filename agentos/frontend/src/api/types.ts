@@ -76,7 +76,7 @@ export interface Goal {
   user_id?: number
 }
 
-// ─── Providers ─────────────────────────────────────────────────────────────────
+// ─── Providers (Store Listings) ──────────────────────────────────────────────
 export interface Provider {
   id: number
   name: string
@@ -90,6 +90,17 @@ export interface Provider {
   currency?: string
   persona?: string
   demo?: boolean
+  listing_key?: string
+  store?: string
+  product_title?: string
+  url?: string
+  pack_size?: number
+  shipping_minor?: number
+  review_count?: number
+  original_currency?: string
+  original_price_minor?: number
+  original_shipping_minor?: number
+  source?: string
 }
 
 // ─── Offers (Matching new backend OffersOut & OfferGroup) ─────────────────────
@@ -99,6 +110,9 @@ export interface OfferRound {
   counter_minor?: number | null
   status: OfferStatus
   scope: string
+  packs?: number
+  shipping_minor?: number
+  tags?: string[]
 }
 
 export interface ProviderOffers {
@@ -111,6 +125,14 @@ export interface ProviderOffers {
   final_price_minor: number
   status: OfferStatus
   rounds: OfferRound[]
+  store?: string
+  product_title?: string
+  url?: string
+  pack_size?: number
+  review_count?: number
+  tags?: string[]
+  original_currency?: string
+  original_price_minor?: number
 }
 
 export interface OfferGroup {
@@ -176,6 +198,15 @@ export interface PlanItem {
   currency?: string
   scope?: string
   offer_id?: number
+  store?: string
+  product_title?: string
+  url?: string
+  quantity?: number | null
+  packs?: number
+  pack_price_minor?: number
+  shipping_minor?: number
+  original_currency?: string
+  original_price_minor?: number
 }
 
 export interface Plan {

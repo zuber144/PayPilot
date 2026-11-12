@@ -21,7 +21,11 @@ from app.schemas import (
 )
 
 _live = Settings()  # fresh read of env / .env, unaffected by the offline autouse fixture
-_KEY = _live.ANTHROPIC_API_KEY if _live.LLM_PROVIDER == "anthropic" else _live.OPENAI_API_KEY
+_KEY = (
+    (_live.GROK_API_KEY or _live.XAI_API_KEY or _live.OPENAI_API_KEY)
+    if _live.LLM_PROVIDER == "grok"
+    else (_live.OPENAI_API_KEY if _live.LLM_PROVIDER == "openai" else _live.ANTHROPIC_API_KEY)
+)
 
 pytestmark = [
     pytest.mark.live,
@@ -35,8 +39,10 @@ GOAL = "Corporate event in Bangalore: catering for 100 people and a photographer
 def _live_llm(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "LLM_MODE", "live")
     monkeypatch.setattr(settings, "LLM_PROVIDER", _live.LLM_PROVIDER)
-    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", _live.ANTHROPIC_API_KEY)
+    monkeypatch.setattr(settings, "GROK_API_KEY", _live.GROK_API_KEY)
+    monkeypatch.setattr(settings, "XAI_API_KEY", _live.XAI_API_KEY)
     monkeypatch.setattr(settings, "OPENAI_API_KEY", _live.OPENAI_API_KEY)
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", _live.ANTHROPIC_API_KEY)
 
 
 def test_live_goal_agent_parses_without_fallback() -> None:

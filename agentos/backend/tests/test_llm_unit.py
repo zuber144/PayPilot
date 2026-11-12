@@ -132,3 +132,48 @@ def test_call_json_raises_llm_failure_on_timeout_never_logs_key(monkeypatch: pyt
 def test_llm_mock_unsupported_task_raises() -> None:
     with pytest.raises(ValueError, match="Unsupported LLM task"):
         llm_mock.respond("unknown_task", "sys", "{}")
+
+
+def test_groq_active_provider_and_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "LLM_MODE", "live")
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "groq")
+
+    # With Groq key
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "gsk-test-key")
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "")
+    assert "groq:" in llm.active_provider()
+    assert llm._provider_key() == "gsk-test-key"
+
+    # Without Groq key, with OpenAI key -> secondary fallback
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "")
+    monkeypatch.setattr(settings, "GROK_API_KEY", "")
+    monkeypatch.setattr(settings, "XAI_API_KEY", "")
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "sk-openai-secondary")
+    assert "openai:" in llm.active_provider()
+    assert "secondary fallback" in llm.active_provider()
+    assert llm._provider_key() == "sk-openai-secondary"
+
+
+def test_groq_fails_falls_back_to_openai(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "LLM_MODE", "live")
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "groq")
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "gsk-test-key")
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "sk-openai-secondary")
+
+    calls: list[str] = []
+
+    def mock_groq(s: str, u: str) -> str:
+        calls.append("groq")
+        raise RuntimeError("Groq API rate limit or network error")
+
+    def mock_openai(s: str, u: str) -> str:
+        calls.append("openai")
+        return json.dumps({"action": "discover", "reason": "openai fallback worked"})
+
+    monkeypatch.setattr(llm, "_groq_completion", mock_groq)
+    monkeypatch.setattr(llm, "_grok_completion", mock_groq)
+    monkeypatch.setattr(llm, "_openai_completion", mock_openai)
+
+    raw = llm._raw_completion("sys", "{}", "route")
+    assert calls == ["groq", "openai"]
+    assert "openai fallback worked" in raw

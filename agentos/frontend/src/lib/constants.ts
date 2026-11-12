@@ -103,9 +103,9 @@ export const DEMO_SCENARIOS: ScenarioChip[] = [
     id: 'clean',
     scenario: 'clean',
     label: '✅ Clean Approval',
-    description: 'All 10 PayGuard rules pass; verified providers within budget ($40,966.66)',
-    goalText: 'Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days',
-    budgetMinor: 5000000, // $50,000
+    description: 'Compares Flipkart & Amazon; optimal cart assembled ($5.83 total); PayGuard APPROVED',
+    goalText: 'Birthday party supplies: 10 party hats and 50 balloons, needed within 5 days',
+    budgetMinor: 2000, // $20.00
     currency: 'USD',
     badge: 'APPROVED',
   },
@@ -113,9 +113,9 @@ export const DEMO_SCENARIOS: ScenarioChip[] = [
     id: 'retry',
     scenario: 'retry',
     label: '🔄 Retry Scenario',
-    description: 'Strict filters trigger RETRY trace event; preference filters relaxed; plan succeeds',
-    goalText: 'Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days',
-    budgetMinor: 5000000, // $50,000
+    description: 'Strict rating filter leaves 0 verified items; agent retries, relaxes rating, and succeeds',
+    goalText: 'Birthday party supplies: 10 party hats and 50 balloons, needed within 5 days',
+    budgetMinor: 2000, // $20.00
     currency: 'USD',
     badge: 'RETRY',
   },
@@ -123,9 +123,9 @@ export const DEMO_SCENARIOS: ScenarioChip[] = [
     id: 'blocked',
     scenario: 'blocked',
     label: '🚫 Blocked Scenario',
-    description: 'Low budget forces unverified provider (QuickBites Co); PayGuard blocks settlement',
-    goalText: 'Corporate event in Bangalore: catering for 100 people and a photographer, event in 10 days',
-    budgetMinor: 3600000, // $36,000
+    description: 'Cheapest Meesho sellers are unverified; PayGuard VERIFIED_PROVIDER rule blocks payment',
+    goalText: 'Birthday party supplies: 10 party hats and 50 balloons, needed within 5 days',
+    budgetMinor: 2000, // $20.00
     currency: 'USD',
     badge: 'BLOCKED',
   },
@@ -133,9 +133,9 @@ export const DEMO_SCENARIOS: ScenarioChip[] = [
     id: 'review',
     scenario: 'review',
     label: '⚠️ Review Required',
-    description: 'Single provider holds 100% (> 70%); requires mandatory human flag acknowledgment',
-    goalText: 'Catering for 100 people for our office event in 10 days',
-    budgetMinor: 5000000, // $50,000
+    description: 'Single seller holds 100% of cart; PayGuard SINGLE_VENDOR_SHARE triggers REVIEW',
+    goalText: 'Office party: 20 party hats',
+    budgetMinor: 2000, // $20.00
     currency: 'USD',
     badge: 'REVIEW',
   },
